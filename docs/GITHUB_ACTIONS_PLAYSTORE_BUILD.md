@@ -26,7 +26,7 @@ Value: <the token from eas token:create>
 
 The workflow uses EAS remote credentials for the Android signing key, so the Play Store signing continuity is preserved.
 
-If the build fails with `An Expo user account is required to proceed`, the `EXPO_TOKEN` repository secret is missing, empty, or unavailable to that workflow run. Recreate the token with an Expo account that can access this EAS project, save it again as `EXPO_TOKEN`, then rerun the workflow.
+If the build fails with `An Expo user account is required to proceed`, the Expo repository secret is missing, empty, or unavailable to that workflow run. Recreate the token with an Expo account that can access this EAS project, save it again as `EXPO_TOKEN`, then rerun the workflow. The workflow also accepts an existing repository secret named `SUBTRACK` as a fallback.
 
 ## Run The Build
 
