@@ -2,7 +2,7 @@
   "expo": {
     "name": "SubTrack",
     "slug": "subtrack-ai",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/SubTrack_Assets/SubTrack_Icon.png",
     "scheme": "subtrackai",
