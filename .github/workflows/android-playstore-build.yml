@@ -15,9 +15,6 @@ jobs:
     permissions:
       contents: read
 
-    env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.SUBTRACK }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,9 +31,16 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Verify Expo token
+      - name: Resolve Expo token
+        env:
+          EXPO_TOKEN_SECRET: ${{ secrets.EXPO_TOKEN }}
+          SUBTRACK_SECRET: ${{ secrets.SUBTRACK }}
         run: |
-          if [ -z "$EXPO_TOKEN" ]; then
+          if [ -n "$EXPO_TOKEN_SECRET" ]; then
+            echo "EXPO_TOKEN=$EXPO_TOKEN_SECRET" >> "$GITHUB_ENV"
+          elif [ -n "$SUBTRACK_SECRET" ]; then
+            echo "EXPO_TOKEN=$SUBTRACK_SECRET" >> "$GITHUB_ENV"
+          else
             echo "::error::Missing Expo token. Create an Expo access token, then add it as a GitHub repository secret named EXPO_TOKEN."
             echo "::error::This workflow also accepts an existing repository secret named SUBTRACK as a fallback."
             echo "::error::GitHub path: Settings > Secrets and variables > Actions > New repository secret."
@@ -50,7 +54,6 @@ jobs:
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN || secrets.SUBTRACK }}
 
       - name: Install dependencies
         run: npm ci
