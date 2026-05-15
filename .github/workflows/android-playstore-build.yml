@@ -34,6 +34,14 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Verify Expo token
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing EXPO_TOKEN. Create an Expo access token, then add it as a GitHub repository secret named EXPO_TOKEN."
+            echo "::error::GitHub path: Settings > Secrets and variables > Actions > New repository secret."
+            exit 1
+          fi
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
