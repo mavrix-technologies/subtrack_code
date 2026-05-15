@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsUserDoc(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function validOptionalUserId(uid) {
+      return !request.resource.data.keys().hasAny(['userId']) ||
+        request.resource.data.userId == uid;
+    }
+
+    function nestedUserWrite(uid) {
+      return ownsUserDoc(uid) && validOptionalUserId(uid);
+    }
+
+    match /appConfig/{id} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      allow read, create, update: if ownsUserDoc(uid);
+      allow delete: if ownsUserDoc(uid);
+
+      match /{document=**} {
+        allow read, delete: if ownsUserDoc(uid);
+        allow create, update: if nestedUserWrite(uid);
+      }
+    }
+
+    match /subscriptions/{id} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /expenses/{id} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /invoices/{id} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Firebase Trigger Email extension queue
+    match /mail/{id} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['to', 'message'])
+        && request.resource.data.to is list
+        && request.resource.data.message is map;
+      allow read, update, delete: if false;
+    }
+  }
+}

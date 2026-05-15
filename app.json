@@ -1,44 +1,155 @@
 {
   "expo": {
-    "name": "subtrack-ai",
+    "name": "SubTrack",
     "slug": "subtrack-ai",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/SubTrack_Assets/SubTrack_Icon.png",
     "scheme": "subtrackai",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/SubTrack_Assets/SubTrack_Icon.png",
+      "bundleIdentifier": "com.subtrackapp.ios",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
+      "package": "com.subtrackapp.android",
+      "versionCode": 8,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/SubTrack_Assets/SubTrack_Icon.png",
+        "backgroundColor": "#F97316"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "com.google.android.gms.permission.AD_ID",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.ACCESS_MEDIA_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/SubTrack_Assets/SubTrack_Icon.png"
     },
     "plugins": [
       "expo-router",
+      "expo-updates",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/SubTrack_Assets/SubTrack_Icon.png",
+          "color": "#4338CA",
+          "androidMode": "default",
+          "androidCollapsedTitle": "#{unread_notifications} renewals pending",
+          "androidChannels": [
+            {
+              "name": "renewal-reminders",
+              "importance": "high",
+              "sound": "renewal_alert",
+              "vibrate": [
+                0,
+                250,
+                250,
+                250
+              ],
+              "bypassDnd": false,
+              "showBadge": true,
+              "description": "Subscription renewal reminders"
+            },
+            {
+              "name": "test-alerts",
+              "importance": "max",
+              "sound": "test_chime",
+              "vibrate": [
+                0,
+                100,
+                100,
+                100,
+                100,
+                100
+              ],
+              "bypassDnd": false,
+              "showBadge": false,
+              "description": "Test notification alerts"
+            }
+          ]
+        }
+      ],
       [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
           "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "image": "./assets/SubTrack_Assets/SubTrack_Icon.png",
+            "imageWidth": 200
+          }
+        }
+      ],
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SubTrack to access your photos for Magic Import.",
+          "cameraPermission": false
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.178143403316-d54ciet0psi55dbsulohig28ld9rnfsb"
+        }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-6003470714469240~3430706633",
+          "iosAppId": "ca-app-pub-6003470714469240~8032294021"
+        }
+      ],
+      "expo-mail-composer",
+      "@react-native-firebase/app",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
           }
         }
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
+      "typedRoutes": false,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ae2081a2-50e2-4d75-9df7-ef7878e73c98"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ae2081a2-50e2-4d75-9df7-ef7878e73c98",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-6003470714469240~3430706633",
+    "ios_app_id": "ca-app-pub-6003470714469240~8032294021"
   }
 }

@@ -1,0 +1,70 @@
+{
+  "project_info": {
+    "project_number": "178143403316",
+    "project_id": "subscription-tracker-bd3fb",
+    "storage_bucket": "subscription-tracker-bd3fb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:178143403316:android:7b447d3a6ce266af94d961",
+        "android_client_info": {
+          "package_name": "com.subtrackapp.android"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "178143403316-lf6h7aggdpvpdqrnv709k9gntvo83mop.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.subtrackapp.android",
+            "certificate_hash": "526e353a4f93c904f5e9025be8b5c94abb94dbae"
+          }
+        },
+        {
+          "client_id": "178143403316-q13tjvk0cv2m6trro97le2ncc2cveph9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.subtrackapp.android",
+            "certificate_hash": "9ff05505cab4f8dfbeea22462a18a52058efb5bf"
+          }
+        },
+        {
+          "client_id": "178143403316-tg7kj865n4bcuepk6r7hcj231l8vcmug.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.subtrackapp.android",
+            "certificate_hash": "05890770059be4f56fea8a29cdbbce1ef09fa56e"
+          }
+        },
+        {
+          "client_id": "178143403316-nt6hd89gpapr7enr6sgpa6cjl3sttp11.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPF-4MVpblQhLF2sYlbPEBCPDAnM8tkNg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "178143403316-nt6hd89gpapr7enr6sgpa6cjl3sttp11.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "178143403316-d54ciet0psi55dbsulohig28ld9rnfsb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.subtrackapp.ios"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

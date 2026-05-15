@@ -1,0 +1,420 @@
+import { ExpenseItem } from '@/components/expense/ExpenseItem';
+import { useCurrency } from '@/contexts/currency';
+import { useTheme } from '@/contexts/theme';
+import { isExpenseReminderConfigured, scheduleSplitReminderAlarm, sendSplitExpenseReminderEmail } from '@/services/expenseReminder';
+import { useExpenseStore } from '@/store/useExpenseStore';
+import { router } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Icon } from 'react-native-paper';
+import Animated, { Layout } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const CATEGORIES = [
+  { id: 'All',           label: 'All',           icon: 'view-grid-outline' },
+  { id: 'Food',          label: 'Food',          icon: 'silverware-fork-knife' },
+  { id: 'Transport',     label: 'Transport',     icon: 'car-outline' },
+  { id: 'Utilities',     label: 'Utilities',     icon: 'flash-outline' },
+  { id: 'Shopping',      label: 'Shopping',      icon: 'shopping-outline' },
+  { id: 'Entertainment', label: 'Entertainment', icon: 'television-play' },
+  { id: 'Health',        label: 'Health',        icon: 'heart-pulse' },
+  { id: 'Travel',        label: 'Travel',        icon: 'airplane' },
+  { id: 'Other',         label: 'Other',         icon: 'dots-horizontal-circle-outline' },
+];
+
+export default function ExpensesScreen() {
+  const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(palette), [palette]);
+  const { expenses } = useExpenseStore();
+  const { formatAmount, currency } = useCurrency();
+  
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<'all' | 'thisMonth' | 'lastMonth'>('thisMonth');
+  const [splitOnly, setSplitOnly] = useState(false);
+
+  const currentMonthTotal = useMemo(() => {
+    const now = new Date();
+    return expenses
+      .filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, e) => sum + e.amount, 0);
+  }, [expenses]);
+
+  const filteredExpenses = useMemo(() => {
+    let result = expenses;
+
+    // Date range filters
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      if (dateFilter === 'lastMonth') {
+        start.setMonth(start.getMonth() - 1);
+        end.setMonth(end.getMonth() - 1);
+      }
+      result = result.filter((e) => {
+        const d = new Date(e.date);
+        return d >= start && d < end;
+      });
+    }
+
+    if (selectedCategory !== 'All') {
+      result = result.filter(e => e.category?.toLowerCase() === selectedCategory.toLowerCase());
+    }
+
+    if (splitOnly) {
+      result = result.filter((e) => !!e.isSplit);
+    }
+
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(e => 
+        e.name.toLowerCase().includes(q) ||
+        (e.category && e.category.toLowerCase().includes(q)) ||
+        (e.notes && e.notes.toLowerCase().includes(q)) ||
+        (e.participants && e.participants.some((p) => (p.name || '').toLowerCase().includes(q)))
+      );
+    }
+    return result;
+  }, [dateFilter, expenses, selectedCategory, searchQuery, splitOnly]);
+
+  const groupedExpenses = useMemo(() => {
+    const groups: { title: string; key: string; items: typeof filteredExpenses }[] = [];
+    const map = new Map<string, typeof filteredExpenses>();
+    const titleMap = new Map<string, string>();
+    for (const e of filteredExpenses) {
+      const d = new Date(e.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!map.has(key)) {
+        map.set(key, []);
+        titleMap.set(key, d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }));
+      }
+      map.get(key)!.push(e);
+    }
+    const keys = Array.from(map.keys()).sort((a, b) => (a > b ? -1 : 1));
+    for (const k of keys) {
+      groups.push({ key: k, title: titleMap.get(k) || k, items: map.get(k)! });
+    }
+    return groups;
+  }, [filteredExpenses]);
+
+  const toggleExpanded = (id: string) => {
+    setExpandedId((cur) => (cur === id ? null : id));
+  };
+
+  const remindAgain = async (expense: any) => {
+    if (!expense.isSplit || !expense.participants?.length) return;
+    const alarmOk = await scheduleSplitReminderAlarm({ expenseName: expense.name, dateIso: expense.date });
+    const emailState = await sendSplitExpenseReminderEmail({
+      expenseName: expense.name,
+      totalAmount: expense.amount,
+      currencySymbol: currency.symbol,
+      dateIso: expense.date,
+      splitType: expense.splitType,
+      participants: expense.participants,
+    });
+    if (emailState === 'sent' && alarmOk) {
+      Alert.alert('Reminders sent', 'Alarm set. Each participant with an email got their own reminder.');
+      return;
+    }
+    if (emailState === 'draft' && alarmOk) {
+      Alert.alert('Reminders ready', 'Alarm set. Your mail app may open one draft per person (in order).');
+      return;
+    }
+    if (emailState === 'skipped') {
+      Alert.alert('No recipient email', 'Add email addresses for participants to send reminders.');
+      return;
+    }
+    if (!isExpenseReminderConfigured()) {
+      Alert.alert('Email not configured', 'Email reminder is not configured.');
+      return;
+    }
+    Alert.alert('Partial success', alarmOk ? 'Alarm set, but personal reminders could not be sent or opened.' : 'Reminders attempted, but alarm could not be set.');
+  };
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Expenses</Text>
+          <Text style={styles.subtitle}>{formatAmount(currentMonthTotal)} this month</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Pressable
+            style={[styles.addButton, styles.addButtonNeutral]}
+            onPress={() => router.push('/friends')}
+            accessibilityLabel="Split friends"
+          >
+            <Icon source="account-heart-outline" size={22} color={palette.text} />
+          </Pressable>
+          <Pressable style={[styles.addButton, styles.addButtonPrimary]} onPress={() => router.push('/add-expense')}>
+            <Icon source="plus" size={20} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </View>
+
+      <ScrollView 
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      >
+
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchBox, { backgroundColor: palette.surface, borderColor: palette.line }]}>
+            <Icon source="magnify" size={20} color={palette.muted} />
+            <TextInput
+              style={[styles.searchInput, { color: palette.text }]}
+              placeholder="Search expenses..."
+              placeholderTextColor={palette.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery !== '' && (
+              <Pressable onPress={() => setSearchQuery('')}>
+                <Icon source="close-circle" size={20} color={palette.muted} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.filterContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+            {/* Date filter */}
+            {([
+              { id: 'thisMonth', label: 'This month', icon: 'calendar-month-outline' },
+              { id: 'lastMonth', label: 'Last month', icon: 'calendar' },
+              { id: 'all', label: 'All time', icon: 'infinity' },
+            ] as const).map((opt) => {
+              const isSelected = dateFilter === opt.id;
+              return (
+                <Pressable
+                  key={opt.id}
+                  style={[
+                    styles.filterChip,
+                    isSelected
+                      ? { backgroundColor: palette.primary, borderColor: palette.primary }
+                      : { backgroundColor: palette.surface, borderColor: palette.line, borderWidth: 1 },
+                  ]}
+                  onPress={() => setDateFilter(opt.id)}
+                >
+                  <Icon source={opt.icon} size={15} color={isSelected ? '#fff' : palette.muted} />
+                  <Text style={[
+                    styles.filterText,
+                    isSelected ? { color: '#fff', fontWeight: '700' } : { color: palette.muted },
+                  ]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+
+            {/* Split only */}
+            <Pressable
+              style={[
+                styles.filterChip,
+                splitOnly
+                  ? { backgroundColor: palette.primary, borderColor: palette.primary }
+                  : { backgroundColor: palette.surface, borderColor: palette.line, borderWidth: 1 },
+              ]}
+              onPress={() => setSplitOnly((v) => !v)}
+            >
+              <Icon source="account-group-outline" size={15} color={splitOnly ? '#fff' : palette.muted} />
+              <Text style={[
+                styles.filterText,
+                splitOnly ? { color: '#fff', fontWeight: '700' } : { color: palette.muted },
+              ]}>
+                Split only
+              </Text>
+            </Pressable>
+
+            {CATEGORIES.map(cat => {
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <Pressable
+                  key={cat.id}
+                  style={[
+                    styles.filterChip,
+                    isSelected
+                      ? { backgroundColor: palette.primary, borderColor: palette.primary }
+                      : { backgroundColor: palette.surface, borderColor: palette.line, borderWidth: 1 }
+                  ]}
+                  onPress={() => setSelectedCategory(cat.id)}
+                >
+                  <Icon
+                    source={cat.icon}
+                    size={15}
+                    color={isSelected ? '#fff' : palette.muted}
+                  />
+                  <Text style={[
+                    styles.filterText,
+                    isSelected ? { color: '#fff', fontWeight: '700' } : { color: palette.muted }
+                  ]}>
+                    {cat.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={{ paddingHorizontal: 24 }}>
+        {filteredExpenses.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Icon source="cash-remove" size={48} color={palette.muted} />
+            <Text style={[styles.emptyTitle, { color: palette.text }]}>No expenses found</Text>
+            <Text style={[styles.emptySubtitle, { color: palette.muted }]}>
+              {selectedCategory === 'All' ? "You haven't added any expenses yet." : `No expenses in ${selectedCategory}.`}
+            </Text>
+          </View>
+        ) : (
+          groupedExpenses.map((group) => (
+            <View key={group.key} style={{ marginBottom: 18 }}>
+              <View style={styles.groupHeader}>
+                <Text style={[styles.groupHeaderText, { color: palette.muted }]}>{group.title}</Text>
+                <Text style={[styles.groupHeaderText, { color: palette.muted }]}>
+                  {formatAmount(group.items.reduce((s, e) => s + e.amount, 0))}
+                </Text>
+              </View>
+              {group.items.map((expense) => {
+                const isExpanded = expandedId === expense.id;
+                return (
+                  <Animated.View
+                    key={expense.id}
+                    layout={Layout.duration(260)}
+                    style={{ overflow: 'hidden', borderRadius: 20, marginBottom: 12 }}
+                  >
+                    <ExpenseItem
+                      expense={expense}
+                      expanded={isExpanded}
+                      onToggle={() => toggleExpanded(expense.id)}
+                      onOpenDetails={() => router.push(`/expense/${expense.id}`)}
+                      onRemind={() => remindAgain(expense)}
+                      onOpenInvoice={
+                        expense.isSplit ? () => router.push(`/expense/invoice/${expense.id}`) : undefined
+                      }
+                    />
+                  </Animated.View>
+                );
+              })}
+            </View>
+          ))
+        )}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function createStyles(palette: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: palette.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      paddingBottom: 16,
+      paddingTop: 8,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: palette.text,
+    },
+    addButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    addButtonNeutral: {
+      backgroundColor: palette.surface,
+      borderWidth: 1,
+      borderColor: palette.line,
+    },
+    addButtonPrimary: {
+      backgroundColor: palette.primary,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: palette.muted,
+      marginTop: 2,
+    },
+    searchContainer: {
+      paddingHorizontal: 24,
+      marginBottom: 16,
+    },
+    searchBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      height: 48,
+    },
+    searchInput: {
+      flex: 1,
+      marginLeft: 8,
+      fontSize: 15,
+    },
+    filterContainer: {
+      marginBottom: 16,
+    },
+    filterScroll: {
+      paddingHorizontal: 24,
+      gap: 8,
+    },
+    filterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+    },
+    filterText: {
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    listContent: {
+      paddingBottom: 120,
+    },
+    groupHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 2,
+      marginBottom: 10,
+      marginTop: 6,
+    },
+    groupHeaderText: {
+      fontSize: 12,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: 60,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    emptySubtitle: {
+      fontSize: 14,
+      textAlign: 'center',
+    },
+  });
+}
