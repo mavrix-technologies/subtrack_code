@@ -2,7 +2,7 @@
   "expo": {
     "name": "SubTrack",
     "slug": "subtrack-ai",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/SubTrack_Assets/SubTrack_Icon.png",
     "scheme": "subtrackai",
@@ -14,11 +14,11 @@
     },
     "android": {
       "package": "com.subtrackapp.android",
-      "versionCode": 8,
+      "versionCode": 9,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/SubTrack_Assets/SubTrack_Icon.png",
-        "backgroundColor": "#F97316"
+        "backgroundColor": "#0F172A"
       },
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
@@ -88,7 +88,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#0F172A",
           "android": {
             "image": "./assets/SubTrack_Assets/SubTrack_Icon.png",
             "imageWidth": 200

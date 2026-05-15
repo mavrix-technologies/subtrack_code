@@ -45,4 +45,4 @@ Upload the `.aab` to Google Play Console.
 - The workflow file is `.github/workflows/android-playstore-build.yml`.
 - It runs `eas build --platform android --profile production --local`.
 - It outputs an Android App Bundle, not an APK.
-- Future v1.2 users will receive OTA updates from the same Expo project and `production` channel.
+- Future v1.2.1 users will receive OTA updates from the same Expo project and `production` channel.
