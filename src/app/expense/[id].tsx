@@ -125,6 +125,7 @@ export default function ExpenseDetailScreen() {
   const iconName = getCategoryIcon(expense.category);
   const categoryColor = getCategoryColor(expense.category);
   const dateText = new Date(expense.date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' });
+  const participants = expense.participants ?? [];
   const splitCount = expense.participants?.length || 0;
 
   return (
@@ -258,11 +259,11 @@ export default function ExpenseDetailScreen() {
         </View>
 
         {/* Split breakdown */}
-        {expense.isSplit && expense.participants?.length ? (
+        {expense.isSplit && participants.length ? (
           <>
             <Text style={styles.sectionTitle}>Split breakdown</Text>
             <View style={[styles.sectionCard, { backgroundColor: palette.surface, borderColor: palette.line }]}>
-              {expense.participants.map((p, idx) => (
+              {participants.map((p, idx) => (
                 <View key={p.id}>
                   <View style={styles.splitRow}>
                     <View style={{ flex: 1, minWidth: 0 }}>
@@ -279,7 +280,7 @@ export default function ExpenseDetailScreen() {
                     </View>
                     <Text style={[styles.splitAmt, { color: palette.text }]} numberOfLines={1}>{formatAmount(p.amount)}</Text>
                   </View>
-                  {idx < expense.participants.length - 1 ? <View style={[styles.sep, { backgroundColor: palette.line, marginLeft: 8 }]} /> : null}
+                  {idx < participants.length - 1 ? <View style={[styles.sep, { backgroundColor: palette.line, marginLeft: 8 }]} /> : null}
                 </View>
               ))}
             </View>

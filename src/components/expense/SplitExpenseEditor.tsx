@@ -1,9 +1,7 @@
 import type { SplitFriend } from '@/types/splitFriend';
-import React, { useMemo } from 'react';
+import React, { Dispatch, SetStateAction, useMemo } from 'react';
 import {
-  Dispatch,
   Pressable,
-  SetStateAction,
   StyleSheet,
   Switch,
   Text,

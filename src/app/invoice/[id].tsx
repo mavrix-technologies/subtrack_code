@@ -10,13 +10,14 @@ import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorho
 import * as Clipboard from 'expo-clipboard';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
 import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useMemo, useRef, useState } from 'react';
 import {
-    ActionSheetIOS,
     ActivityIndicator, Alert, Dimensions,
+    InteractionManager,
     Keyboard,
     KeyboardAvoidingView,
     LayoutAnimation,
@@ -24,7 +25,9 @@ import {
     Platform,
     Pressable,
     Image as RNImage,
-    ScrollView, StatusBar,
+    ScrollView,
+    Share,
+    StatusBar,
     StyleSheet, Text, TextInput,
     View
 } from 'react-native';
@@ -35,6 +38,106 @@ import { captureRef } from 'react-native-view-shot';
 import { WebView } from 'react-native-webview';
 
 const { width: SW } = Dimensions.get('window');
+type ExportFile = {
+  uri: string;
+  fileName: string;
+  mimeType: string;
+};
+
+function getExportStatusText(shareLoading: string | null) {
+  switch (shareLoading) {
+    case 'ad': return 'Loading ad';
+    case 'pdf': return 'Preparing PDF';
+    case 'image': return 'Saving image';
+    case 'excel': return 'Preparing CSV';
+    case 'email': return 'Opening email';
+    case 'link': return 'Copying link';
+    default: return 'Preparing export';
+  }
+}
+
+async function copyToNamedCacheFile(sourceUri: string, fileName: string): Promise<string> {
+  const cacheDir = FileSystem.cacheDirectory;
+  if (!cacheDir) throw new Error('Cache directory not available.');
+  const destination = `${cacheDir}${fileName}`;
+  await FileSystem.deleteAsync(destination, { idempotent: true });
+  await FileSystem.copyAsync({ from: sourceUri, to: destination });
+  return destination;
+}
+
+async function saveDocumentWithNativePicker(file: ExportFile) {
+  if (Platform.OS === 'android') {
+    const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!permissions.granted) return false;
+
+    const targetUri = await FileSystem.StorageAccessFramework.createFileAsync(
+      permissions.directoryUri,
+      file.fileName,
+      file.mimeType
+    );
+    const base64 = await FileSystem.readAsStringAsync(file.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    await FileSystem.writeAsStringAsync(targetUri, base64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return true;
+  }
+
+  if (Platform.OS === 'ios') {
+    await Share.share({
+      title: file.fileName,
+      url: file.uri,
+    });
+    return true;
+  }
+
+  const canShare = await Sharing.isAvailableAsync();
+  if (!canShare) throw new Error('Native save sheet is not available on this device.');
+
+  await Sharing.shareAsync(file.uri, {
+    mimeType: file.mimeType,
+    UTI: file.fileName.endsWith('.pdf') ? 'com.adobe.pdf' : 'public.comma-separated-values-text',
+    dialogTitle: `Save ${file.fileName}`,
+  });
+  return true;
+}
+
+async function saveImageToPhotoLibrary(uri: string, fileName: string) {
+  if (Platform.OS === 'ios') {
+    const permission = await MediaLibrary.requestPermissionsAsync(true);
+    if (!permission.granted) {
+      Alert.alert(
+        'Photos permission off',
+        'Allow SubTrack to add photos in iOS Settings, then try saving the invoice image again.'
+      );
+      return false;
+    }
+
+    await MediaLibrary.saveToLibraryAsync(uri);
+    Alert.alert('Image saved', `${fileName} was saved to your photos.`);
+    return true;
+  }
+
+  try {
+    await MediaLibrary.saveToLibraryAsync(uri);
+    Alert.alert('Image saved', `${fileName} was saved to your photos.`);
+    return true;
+  } catch {
+    const permission = await MediaLibrary.requestPermissionsAsync(true, ['photo']);
+    if (!permission.granted) {
+      Alert.alert(
+        'Photos permission off',
+        'SubTrack needs permission to save invoice images. Enable photo access in system settings and try again.'
+      );
+      return false;
+    }
+
+    await MediaLibrary.saveToLibraryAsync(uri);
+    Alert.alert('Image saved', `${fileName} was saved to your photos.`);
+    return true;
+  }
+}
 
 // ── Preview WebView JS ────────────────────────────────────────────────────────
 // Injected into every template preview WebView to:
@@ -47,21 +150,26 @@ const PREVIEW_JS = `
     var PAGE_W = 794;
     var PAGE_H = 1123;
     var vw = window.innerWidth || document.documentElement.clientWidth || PAGE_W;
-    var scale = vw / PAGE_W;
+    var vh = window.innerHeight || document.documentElement.clientHeight || PAGE_H;
+    var scale = Math.min(vw / PAGE_W, vh / PAGE_H);
+    if (!isFinite(scale) || scale <= 0) scale = vw / PAGE_W;
     var scaledH = Math.ceil(PAGE_H * scale);
+    var scaledW = Math.ceil(PAGE_W * scale);
 
     var el = document.querySelector('.page') || document.body;
     el.style.transformOrigin = 'top left';
     el.style.transform = 'scale(' + scale + ')';
     el.style.width = PAGE_W + 'px';
     el.style.minHeight = PAGE_H + 'px';
+    el.style.marginLeft = Math.max(0, Math.floor((vw - scaledW) / 2)) + 'px';
+    el.style.marginTop = Math.max(0, Math.floor((vh - scaledH) / 2)) + 'px';
 
     // Shrink wrapper to scaled size so no scrollbar appears
     document.documentElement.style.width = vw + 'px';
-    document.documentElement.style.height = scaledH + 'px';
+    document.documentElement.style.height = vh + 'px';
     document.documentElement.style.overflow = 'hidden';
     document.body.style.width = vw + 'px';
-    document.body.style.height = scaledH + 'px';
+    document.body.style.height = vh + 'px';
     document.body.style.overflow = 'hidden';
     document.body.style.margin = '0';
     document.body.style.padding = '0';
@@ -93,6 +201,13 @@ const PREVIEW_JS = `
   true;
 })();
 `;
+
+function getInvoicePreviewHtml(html: string) {
+  return html.replace(
+    '<meta name="viewport" content="width=794"/>',
+    '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>'
+  );
+}
 
 // ── Torn edge ─────────────────────────────────────────────────────────────────
 function TornEdge({ palette, flip }: { palette: any; flip: boolean }) {
@@ -509,6 +624,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
   const activeWebViewRef = useRef<View>(null);
   const [isGridMode, setIsGridMode] = useState(false);
   const [shareLoading, setShareLoading] = useState<string | null>(null);
+  const [showExportSheet, setShowExportSheet] = useState(false);
   const [showBrandModal, setShowBrandModal] = useState(false);
   const [emailRecipientModal, setEmailRecipientModal] = useState(false);
   const [emailRecipientDraft, setEmailRecipientDraft] = useState('');
@@ -581,51 +697,103 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
     setShowBrandModal(false);
   };
 
-  // Safe file name prefix from brand
   const filePrefix = (brand.filePrefix || 'invoice').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const invSuffix  = (invoice.invoiceNumber || invoice.id.slice(0, 8)).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const invSuffix = (invoice.invoiceNumber || invoice.id.slice(0, 8)).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const pdfFileName = `${filePrefix}_${invSuffix}.pdf`;
+  const imageFileName = `${filePrefix}_${invSuffix}.png`;
+  const csvFileName = `${filePrefix}_${invSuffix}.csv`;
 
-  // ── Share as PDF ────────────────────────────────────────────────────────────
-  const handleSharePdf = async () => {
+  const createPdfExport = async (): Promise<ExportFile> => {
+    const html = generateInvoiceHtml(templateId, invoice, sym);
+    const { uri } = await Print.printToFileAsync({ html, base64: false, width: 595, height: 842 });
+    const namedUri = await copyToNamedCacheFile(uri, pdfFileName);
+    return { uri: namedUri, fileName: pdfFileName, mimeType: 'application/pdf' };
+  };
+
+  const createImageExport = async (): Promise<ExportFile> => {
+    if (!activeWebViewRef.current) throw new Error('Preview not ready. Please wait a moment and try again.');
+    const uri = await captureRef(activeWebViewRef, { format: 'png', quality: 1.0, result: 'tmpfile' });
+    const namedUri = await copyToNamedCacheFile(uri, imageFileName);
+    return { uri: namedUri, fileName: imageFileName, mimeType: 'image/png' };
+  };
+
+  const createCsvExport = async (): Promise<ExportFile> => {
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) throw new Error('Cache directory not available on this device.');
+    const dest = `${cacheDir}${csvFileName}`;
+
+    const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows: string[] = [];
+    rows.push(['Invoice Number', 'Client', 'Client Email', 'Client Phone', 'Issue Date', 'Due Date', 'Status', 'Subtotal', 'Tax Rate %', 'Tax Amount', 'Discount', 'Total', 'Amount Paid', 'Balance Due', 'Notes', 'Terms'].join(','));
+    rows.push([esc(invoice.invoiceNumber || invoice.id.slice(0, 8)), esc(invoice.clientName), esc(invoice.clientEmail ?? ''), esc(invoice.clientPhone ?? ''), esc(invoice.date ? new Date(invoice.date).toLocaleDateString() : ''), esc(invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : ''), esc(invoice.status), esc(invoice.subtotal.toFixed(2)), esc(invoice.taxRate.toFixed(2)), esc(invoice.taxAmount.toFixed(2)), esc(invoice.discountAmount.toFixed(2)), esc(invoice.total.toFixed(2)), esc(invoice.amountPaid.toFixed(2)), esc(invoice.balanceDue.toFixed(2)), esc(invoice.notes ?? ''), esc(invoice.terms ?? '')].join(','));
+    rows.push('', 'Line Items', ['#', 'Description', 'Notes', 'Unit Price', 'Qty', 'Line Total'].join(','));
+    invoice.items.forEach((item, i) => rows.push([esc(i + 1), esc(item.name), esc(item.description ?? ''), esc(item.price.toFixed(2)), esc(item.qty), esc((item.price * item.qty).toFixed(2))].join(',')));
+    if (invoice.payments?.length) {
+      rows.push('', 'Payment History', ['Date', 'Method', 'Amount', 'Note'].join(','));
+      invoice.payments.forEach(pay => rows.push([esc(new Date(pay.date).toLocaleDateString()), esc(pay.method), esc(pay.amount.toFixed(2)), esc(pay.note ?? '')].join(',')));
+    }
+
+    await FileSystem.writeAsStringAsync(dest, rows.join('\r\n'), { encoding: 'utf8' });
+    return { uri: dest, fileName: csvFileName, mimeType: 'text/csv' };
+  };
+
+  const handleSavePdf = async () => {
     setShareLoading('pdf');
     try {
-      const html = generateInvoiceHtml(templateId, invoice, sym);
-      const { uri } = await Print.printToFileAsync({ html, base64: false, width: 595, height: 842 });
-      const cacheDir = FileSystem.cacheDirectory ?? '';
-      if (!cacheDir) throw new Error('Cache directory not available on this device.');
-      const dest = `${cacheDir}${filePrefix}_${invSuffix}.pdf`;
-      const info = await FileSystem.getInfoAsync(dest);
-      if (info.exists) await FileSystem.deleteAsync(dest, { idempotent: true });
-      await FileSystem.copyAsync({ from: uri, to: dest });
-      const check = await FileSystem.getInfoAsync(dest);
-      if (!check.exists) throw new Error('PDF file could not be written to device storage.');
-      if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
-
-      await Sharing.shareAsync(dest, {
-        mimeType: 'application/pdf',
-        UTI: 'com.adobe.pdf',
-        dialogTitle: `${invoice.invoiceNumber} — Invoice PDF`,
-      });
+      const file = await createPdfExport();
+      setShareLoading(null);
+      if (Platform.OS === 'ios') await waitForNativePresentation();
+      const saved = await saveDocumentWithNativePicker(file);
+      if (saved && Platform.OS === 'android') Alert.alert('PDF saved', `${file.fileName} was saved to the folder you selected.`);
+      if (!saved) Alert.alert('Save cancelled', 'No PDF was saved.');
     } catch (e: any) {
-      Alert.alert('Export Failed', e?.message ?? 'Could not generate PDF.');
+      Alert.alert('Save Failed', e?.message ?? 'Could not save PDF.');
     } finally {
       setShareLoading(null);
     }
   };
 
-  // ── Email summary: prompt for recipient then send ───────────────────────────
-  const handleShareEmail = () => {
+  const handleSaveImage = async () => {
+    setShareLoading('image');
+    try {
+      const file = await createImageExport();
+      setShareLoading(null);
+      await saveImageToPhotoLibrary(file.uri, file.fileName);
+    } catch (e: any) {
+      Alert.alert('Save Failed', e?.message ?? 'Could not save invoice image.');
+    } finally {
+      setShareLoading(null);
+    }
+  };
+
+  const handleSaveCsv = async () => {
+    setShareLoading('excel');
+    try {
+      const file = await createCsvExport();
+      setShareLoading(null);
+      if (Platform.OS === 'ios') await waitForNativePresentation();
+      const saved = await saveDocumentWithNativePicker(file);
+      if (saved && Platform.OS === 'android') Alert.alert('CSV saved', `${file.fileName} was saved to the folder you selected.`);
+      if (!saved) Alert.alert('Save cancelled', 'No CSV was saved.');
+    } catch (e: any) {
+      Alert.alert('Save Failed', e?.message ?? 'Could not save CSV.');
+    } finally {
+      setShareLoading(null);
+    }
+  };
+
+  const handleEmailClient = () => {
     setEmailRecipientDraft((invoice.clientEmail || '').trim());
     setEmailRecipientModal(true);
   };
 
-  const validateEmailBasic = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+  const validateEmailBasic = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-  const submitInvoiceShareEmail = async () => {
+  const submitEmailClient = async () => {
     Keyboard.dismiss();
     const to = emailRecipientDraft.trim();
     if (!validateEmailBasic(to)) {
-      Alert.alert('Invalid email', 'Enter a valid address (example: client@company.com).');
+      Alert.alert('Invalid email', 'Enter a valid email address.');
       return;
     }
     setEmailRecipientModal(false);
@@ -635,221 +803,65 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
       if (result === 'sent') {
         Alert.alert('Email sent', `Invoice summary was sent to ${to}.`);
       } else if (result === 'draft') {
-        Alert.alert('Compose email', 'Your mail app opened with this invoice summary as a draft.');
+        Alert.alert('Email draft ready', 'Your mail app opened with the invoice summary.');
       } else if (result === 'skipped') {
-        Alert.alert('Invalid email', 'Check the address and try again.');
+        Alert.alert('Invalid email', 'Check the recipient address and try again.');
       } else {
-        Alert.alert('Could not email', 'Set EXPO_PUBLIC_GOOGLE_MAIL_SCRIPT_URL in .env or try again.');
+        Alert.alert('Email unavailable', 'Could not send or open an invoice email draft.');
       }
     } finally {
       setShareLoading(null);
     }
   };
 
-  // ── Save as PNG image ───────────────────────────────────────────────────────
-  const handleShareImage = async () => {
-    setShareLoading('image');
-    try {
-      // Capture the visible WebView container as a PNG
-      if (!activeWebViewRef.current) throw new Error('Preview not ready. Please wait a moment and try again.');
-      const pngUri = await captureRef(activeWebViewRef, {
-        format: 'png',
-        quality: 1.0,
-        result: 'tmpfile',
-      });
-      const cacheDir = FileSystem.cacheDirectory ?? '';
-      if (!cacheDir) throw new Error('Cache directory not available on this device.');
-      const dest = `${cacheDir}${filePrefix}_${invSuffix}.png`;
-      const info = await FileSystem.getInfoAsync(dest);
-      if (info.exists) await FileSystem.deleteAsync(dest, { idempotent: true });
-      await FileSystem.copyAsync({ from: pngUri, to: dest });
-      const check = await FileSystem.getInfoAsync(dest);
-      if (!check.exists) throw new Error('Image file could not be written to device storage.');
-      if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
-
-      await Sharing.shareAsync(dest, {
-        mimeType: 'image/png',
-        UTI: 'public.png',
-        dialogTitle: `${invoice.invoiceNumber} — Invoice Image`,
-      });
-    } catch (e: any) {
-      Alert.alert('Export Failed', e?.message ?? 'Could not capture invoice image.');
-    } finally {
-      setShareLoading(null);
-    }
-  };
-
-  // ── Export as CSV ───────────────────────────────────────────────────────────
-  const handleShareExcel = async () => {
-    setShareLoading('excel');
-    try {
-      const cacheDir = FileSystem.cacheDirectory;
-      if (!cacheDir) throw new Error('Cache directory not available on this device.');
-      const dest = `${cacheDir}${filePrefix}_${invSuffix}.csv`;
-
-      // Build CSV content
-      const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-      const rows: string[] = [];
-
-      // ── Summary ──
-      rows.push([
-        'Invoice Number', 'Client', 'Client Email', 'Client Phone',
-        'Issue Date', 'Due Date', 'Status',
-        'Subtotal', 'Tax Rate %', 'Tax Amount', 'Discount',
-        'Total', 'Amount Paid', 'Balance Due',
-        'Notes', 'Terms',
-      ].join(','));
-      rows.push([
-        esc(invoice.invoiceNumber || invoice.id.slice(0, 8)),
-        esc(invoice.clientName),
-        esc(invoice.clientEmail ?? ''),
-        esc(invoice.clientPhone ?? ''),
-        esc(invoice.date ? new Date(invoice.date).toLocaleDateString() : ''),
-        esc(invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : ''),
-        esc(invoice.status),
-        esc(invoice.subtotal.toFixed(2)),
-        esc(invoice.taxRate.toFixed(2)),
-        esc(invoice.taxAmount.toFixed(2)),
-        esc(invoice.discountAmount.toFixed(2)),
-        esc(invoice.total.toFixed(2)),
-        esc(invoice.amountPaid.toFixed(2)),
-        esc(invoice.balanceDue.toFixed(2)),
-        esc(invoice.notes ?? ''),
-        esc(invoice.terms ?? ''),
-      ].join(','));
-
-      // ── Line items ──
-      rows.push('');
-      rows.push('Line Items');
-      rows.push(['#', 'Description', 'Notes', 'Unit Price', 'Qty', 'Line Total'].join(','));
-      invoice.items.forEach((item, i) => {
-        rows.push([
-          esc(i + 1),
-          esc(item.name),
-          esc(item.description ?? ''),
-          esc(item.price.toFixed(2)),
-          esc(item.qty),
-          esc((item.price * item.qty).toFixed(2)),
-        ].join(','));
-      });
-
-      // ── Payment history ──
-      if (invoice.payments && invoice.payments.length > 0) {
-        rows.push('');
-        rows.push('Payment History');
-        rows.push(['Date', 'Method', 'Amount', 'Note'].join(','));
-        invoice.payments.forEach(pay => {
-          rows.push([
-            esc(new Date(pay.date).toLocaleDateString()),
-            esc(pay.method),
-            esc(pay.amount.toFixed(2)),
-            esc(pay.note ?? ''),
-          ].join(','));
-        });
-      }
-
-      const csv = rows.join('\r\n');
-
-      // Delete stale file if exists, then write fresh
-      const existing = await FileSystem.getInfoAsync(dest);
-      if (existing.exists) await FileSystem.deleteAsync(dest, { idempotent: true });
-      await FileSystem.writeAsStringAsync(dest, csv, { encoding: 'utf8' });
-
-      // Confirm file was written before sharing
-      const check = await FileSystem.getInfoAsync(dest);
-      if (!check.exists) throw new Error('CSV file could not be written to device storage.');
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(dest, {
-          mimeType: 'text/csv',
-          dialogTitle: 'Export Invoice as CSV',
-          UTI: 'public.comma-separated-values-text',
-        });
-      } else {
-        Alert.alert('Sharing unavailable', 'Your device does not support file sharing.');
-      }
-    } catch (e: any) {
-      Alert.alert('Export Failed', e?.message ?? 'Could not generate CSV. Please try again.');
-    } finally {
-      setShareLoading(null);
-    }
-  };
-
-  // ── Copy Link ───────────────────────────────────────────────────────────────
   const handleCopyLink = async () => {
     setShareLoading('link');
     try {
-      const link = `subscriptiontracker://invoice/${invoice.id}`;
-      await Clipboard.setStringAsync(link);
-      Alert.alert('Link Copied!', 'Invoice deep link has been copied to your clipboard.');
+      await Clipboard.setStringAsync(`subscriptiontracker://invoice/${invoice.id}`);
+      Alert.alert('Link copied', 'Invoice link copied to clipboard.');
     } catch {
-      Alert.alert('Error', 'Could not copy link.');
+      Alert.alert('Copy failed', 'Could not copy invoice link.');
     } finally {
       setShareLoading(null);
     }
   };
 
-  const openExportOptions = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title: 'Export Invoice',
-          options: ['Cancel', 'Share as PDF', 'Email summary to client', 'Share as Image', 'Export as CSV', 'Copy Link'],
-          cancelButtonIndex: 0,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) handleSharePdf();
-          if (buttonIndex === 2) handleShareEmail();
-          if (buttonIndex === 3) handleShareImage();
-          if (buttonIndex === 4) handleShareExcel();
-          if (buttonIndex === 5) handleCopyLink();
-        }
-      );
-      return;
-    }
+  const waitForNativePresentation = () =>
+    new Promise<void>((resolve) => {
+      const delayMs = Platform.OS === 'ios' ? 450 : 120;
+      setTimeout(() => {
+        InteractionManager.runAfterInteractions(() => resolve());
+      }, delayMs);
+    });
 
-    const openMoreExportOptions = () => {
-      Alert.alert(
-        'More Export Options',
-        'Choose another export action.',
-        [
-          { text: 'Email summary to client', onPress: handleShareEmail },
-          { text: 'Export as CSV', onPress: handleShareExcel },
-          { text: 'Copy Link', onPress: handleCopyLink },
-          { text: 'Cancel', style: 'cancel' },
-        ],
-        { cancelable: true }
-      );
-    };
-
-    Alert.alert(
-      'Export Invoice',
-      'Choose how to share this invoice.',
-      [
-        { text: 'Share as PDF', onPress: handleSharePdf },
-        { text: 'Email summary to client', onPress: handleShareEmail },
-        { text: 'Share as Image', onPress: handleShareImage },
-        { text: 'More', onPress: openMoreExportOptions },
-      ],
-      { cancelable: true }
-    );
+  const runExportAction = (action: () => void | Promise<void>) => {
+    setShowExportSheet(false);
+    requestAnimationFrame(() => {
+      void (async () => {
+        await waitForNativePresentation();
+        await action();
+      })();
+    });
   };
 
   const handleNativeShare = async () => {
     if (shareLoading) return;
-
-    setShareLoading('ad');
     try {
       await showInvoiceExportRewardAd();
     } catch {
       // Export should still work if the ad has no fill or cannot load.
-    } finally {
-      setShareLoading(null);
-      setTimeout(openExportOptions, 120);
     }
+    setShowExportSheet(true);
   };
 
   const currentTemplate = TEMPLATES.find(t => t.id === templateId) || TEMPLATES[0];
+  const previewBg = palette.background;
+  const previewSurface = palette.surface;
+  const previewText = palette.text;
+  const previewMuted = palette.muted;
+  const previewBorder = palette.border;
+  const iconBg = palette.background === '#FFFFFF' ? '#F3F4F6' : '#2C2C2E';
+  const iconColor = palette.background === '#FFFFFF' ? '#374151' : '#F9FAFB';
 
   const handleScroll = (event: any) => {
     const x = event.nativeEvent.contentOffset.x;
@@ -878,28 +890,29 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
   // Capture the active preview container when exporting a PNG.
   const activeHtml = generateInvoiceHtml(templateId, invoice, sym);
+  const activePreviewHtml = getInvoicePreviewHtml(activeHtml);
   const initialIndex = TEMPLATES.findIndex(t => t.id === templateId);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <View style={{ flex: 1, backgroundColor: previewBg }}>
+      <StatusBar barStyle={previewBg === '#FFFFFF' ? 'dark-content' : 'light-content'} backgroundColor={previewBg} />
 
       {/* Toolbar */}
-      <View style={[pvS.toolbar, { paddingTop: insets.top + 16, paddingBottom: 16 }]}>
-        <Pressable onPress={onClose} style={pvS.toolbarClose} hitSlop={12}>
-          <Icon source="close" size={24} color="#374151" />
+      <View style={[pvS.toolbar, { paddingTop: Math.max(insets.top, 12) + 12, paddingBottom: 12, backgroundColor: previewBg }]}>
+        <Pressable onPress={onClose} style={[pvS.toolbarIcon, { backgroundColor: iconBg }]} hitSlop={12}>
+          <Icon source="close" size={22} color={iconColor} />
         </Pressable>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827', textTransform: 'capitalize', letterSpacing: 0.5 }}>
+        <View style={{ alignItems: 'center', flex: 1, paddingHorizontal: 12 }}>
+          <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '800', color: previewText, textTransform: 'capitalize', letterSpacing: 0 }}>
             {isGridMode ? 'Select Template' : currentTemplate.name}
           </Text>
-          <Text style={{ fontSize: 11, fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 }}>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: previewMuted, textTransform: 'uppercase', letterSpacing: 0, marginTop: 2 }}>
             {isGridMode ? 'All Layouts' : 'Template'}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Pressable style={[pvS.toolbarClose, { backgroundColor: '#e5e7eb' }]} onPress={() => setShowBrandModal(true)} hitSlop={8}>
-            <Icon source="tune-variant" size={20} color="#374151" />
+          <Pressable style={[pvS.toolbarIcon, { backgroundColor: iconBg }]} onPress={() => setShowBrandModal(true)} hitSlop={8}>
+            <Icon source="tune-variant" size={20} color={iconColor} />
           </Pressable>
           <Pressable
             style={[pvS.exportBtn, { backgroundColor: palette.primary }]}
@@ -907,7 +920,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
             disabled={!!shareLoading}
           >
             {shareLoading ? <ActivityIndicator size="small" color="#fff" />
-              : <Icon source="export-variant" size={20} color="#fff" />}
+              : <Icon source="content-save-outline" size={20} color="#fff" />}
           </Pressable>
         </View>
       </View>
@@ -924,15 +937,15 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
           style={{ flex: 1 }}
         >
           {TEMPLATES.map(t => (
-            <View key={t.id} style={{ width: SW, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 16 }}>
+            <View key={t.id} style={{ width: SW, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 16 }}>
               {t.id === templateId ? (
                 <View
                   ref={activeWebViewRef}
-                  style={{ width: '100%', aspectRatio: 210 / 297, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  style={[pvS.previewPage, { backgroundColor: '#fff', borderColor: previewBorder }]}
                   collapsable={false}
                 >
                   <WebView
-                    source={{ html: activeHtml }}
+                    source={{ html: activePreviewHtml }}
                     style={{ flex: 1 }}
                     scalesPageToFit={false}
                     scrollEnabled={false}
@@ -943,9 +956,9 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
                   />
                 </View>
               ) : (
-                <View style={{ width: '100%', aspectRatio: 210 / 297, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                <View style={[pvS.previewPage, { backgroundColor: '#fff', borderColor: previewBorder }]}>
                   <WebView
-                    source={{ html: generateInvoiceHtml(t.id, invoice, sym) }}
+                    source={{ html: getInvoicePreviewHtml(generateInvoiceHtml(t.id, invoice, sym)) }}
                     style={{ flex: 1 }}
                     scalesPageToFit={false}
                     scrollEnabled={false}
@@ -961,74 +974,93 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
         </ScrollView>
       )}
 
-      {/* Grid View Inline */}
-      {isGridMode && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            {TEMPLATES.map(t => {
-              const isActive = t.id === templateId;
-              return (
-                <View key={t.id} style={{ width: '48%', marginBottom: 20 }}>
-                  <Pressable
-                    onPress={() => handleSelectFromGrid(t.id)}
-                    style={{
-                      aspectRatio: 210 / 297,
-                      backgroundColor: '#fff',
-                      borderRadius: 10,
-                      borderWidth: 2.5,
-                      borderColor: isActive ? palette.primary : '#e5e7eb',
-                      overflow: 'hidden',
-                      boxShadow: isActive ? '0 4px 8px rgba(0,0,0,0.14)' : '0 2px 4px rgba(0,0,0,0.08)',
-                    }}
-                  >
-                    {/* pointer-events none so taps reach the Pressable */}
-                    <View style={{ flex: 1, pointerEvents: 'none' }}>
-                      <WebView
-                        source={{ html: generateInvoiceHtml(t.id, invoice, sym) }}
-                        style={{ flex: 1 }}
-                        scalesPageToFit={false}
-                        scrollEnabled={false}
-                        showsVerticalScrollIndicator={false}
-                        showsHorizontalScrollIndicator={false}
-                        injectedJavaScript={PREVIEW_JS}
-                        onMessage={() => {}}
-                      />
-                    </View>
-                    {/* selected overlay */}
-                    {isActive && (
-                      <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: `${palette.primary}10`, pointerEvents: 'none' }} />
-                    )}
-                    {/* checkmark badge */}
-                    {isActive && (
-                      <View style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 11, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon source="check" size={14} color="#fff" />
-                      </View>
-                    )}
-                  </Pressable>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: isActive ? palette.primary : '#4b5563', textAlign: 'center', marginTop: 8 }}>
-                    {t.name}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginTop: 2 }}>
-                    {t.description}
-                  </Text>
-                </View>
-              );
-            })}
+      <Modal visible={!!shareLoading} transparent animationType="fade">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(17,24,39,0.48)' }}>
+          <View style={{ width: 210, borderRadius: 18, backgroundColor: previewSurface, padding: 20, alignItems: 'center', gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: previewBorder }}>
+            <ActivityIndicator size="large" color={palette.primary} />
+            <Text style={{ color: previewText, fontSize: 16, fontWeight: '800', textAlign: 'center' }}>
+              {getExportStatusText(shareLoading)}
+            </Text>
+            <Text style={{ color: previewMuted, fontSize: 12, fontWeight: '600', textAlign: 'center', lineHeight: 17 }}>
+              This should only take a moment.
+            </Text>
           </View>
-        </ScrollView>
-      )}
+        </View>
+      </Modal>
 
-      {/* Floating Action Button for Template Selection */}
-      <View style={{ alignItems: 'center', paddingVertical: 16, paddingBottom: insets.bottom + 16, backgroundColor: '#FFFFFF', zIndex: 10 }}>
-        <Pressable
-          style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 8px rgba(0,0,0,0.18)' }}
-          onPress={toggleGridMode}
-        >
-          <Icon source={isGridMode ? "close" : "view-grid-outline"} size={28} color="#fff" />
-        </Pressable>
-      </View>
+      <Modal
+        visible={showExportSheet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowExportSheet(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Pressable
+            style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(17,24,39,0.48)' }]}
+            onPress={() => setShowExportSheet(false)}
+          />
+          <View
+            style={{
+              backgroundColor: previewSurface,
+              borderTopLeftRadius: 22,
+              borderTopRightRadius: 22,
+              paddingHorizontal: 18,
+              paddingTop: 18,
+              paddingBottom: Math.max(insets.bottom, 16) + 8,
+              gap: 8,
+            }}
+          >
+            <View style={{ alignItems: 'center', paddingBottom: 8 }}>
+              <View style={{ width: 42, height: 4, borderRadius: 2, backgroundColor: previewBorder, marginBottom: 14 }} />
+              <Text style={{ color: previewText, fontSize: 18, fontWeight: '800' }}>Invoice Actions</Text>
+              <Text style={{ color: previewMuted, fontSize: 13, marginTop: 4 }}>Save a file or send a quick link</Text>
+            </View>
 
-      {/* ── Recipient email for invoice summary ───────────────────────────── */}
+            {[
+              { label: 'Save PDF', icon: 'content-save-outline', action: handleSavePdf },
+              { label: 'Save Image', icon: 'image-plus', action: handleSaveImage },
+              { label: 'Save CSV', icon: 'file-download-outline', action: handleSaveCsv },
+              { label: 'Email Client', icon: 'email-outline', action: handleEmailClient },
+              { label: 'Copy Link', icon: 'link-variant', action: handleCopyLink },
+            ].map((item) => (
+              <Pressable
+                key={item.label}
+                onPress={() => runExportAction(item.action)}
+                style={({ pressed }) => ({
+                  minHeight: 54,
+                  borderRadius: 14,
+                  backgroundColor: pressed ? `${palette.primary}22` : iconBg,
+                  borderWidth: 1,
+                  borderColor: pressed ? palette.primary : previewBorder,
+                  paddingHorizontal: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  opacity: pressed ? 0.86 : 1,
+                })}
+              >
+                <Icon source={item.icon} size={22} color={palette.primary} />
+                <Text style={{ flex: 1, color: previewText, fontSize: 16, fontWeight: '700' }}>{item.label}</Text>
+                <Icon source="chevron-right" size={20} color={previewMuted} />
+              </Pressable>
+            ))}
+
+            <Pressable
+              onPress={() => setShowExportSheet(false)}
+              style={{
+                minHeight: 52,
+                borderRadius: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 4,
+              }}
+            >
+              <Text style={{ color: previewMuted, fontSize: 16, fontWeight: '800' }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         visible={emailRecipientModal}
         transparent
@@ -1050,41 +1082,41 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
             <View style={{ paddingHorizontal: 24, zIndex: 1 }}>
               <View
                 style={{
-                  backgroundColor: '#fff',
+                  backgroundColor: previewSurface,
                   borderRadius: 16,
                   padding: 20,
                   borderWidth: 1,
-                  borderColor: '#e5e7eb',
+                  borderColor: previewBorder,
                 }}
               >
-                <Text style={{ fontSize: 17, fontWeight: '800', color: '#111827' }}>Send invoice summary</Text>
-                <Text style={{ fontSize: 13, color: '#6b7280', marginTop: 8, lineHeight: 18 }}>
-                  Enter the recipient&apos;s email. This does not update the invoice &quot;Bill to&quot; field.
+                <Text style={{ fontSize: 17, fontWeight: '800', color: previewText }}>Email client</Text>
+                <Text style={{ fontSize: 13, color: previewMuted, marginTop: 8, lineHeight: 18 }}>
+                  Opens your mail app with the invoice summary filled in.
                 </Text>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#9ca3af', marginTop: 16, letterSpacing: 0.06, textTransform: 'uppercase' }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: previewMuted, marginTop: 16, letterSpacing: 0, textTransform: 'uppercase' }}>
                   Recipient email
                 </Text>
                 <TextInput
                   value={emailRecipientDraft}
                   onChangeText={setEmailRecipientDraft}
                   placeholder="name@company.com"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={previewMuted}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
                   autoComplete="email"
                   returnKeyType="send"
-                  onSubmitEditing={submitInvoiceShareEmail}
+                  onSubmitEditing={submitEmailClient}
                   style={{
                     marginTop: 8,
-                    backgroundColor: '#f9fafb',
+                    backgroundColor: iconBg,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: '#e5e7eb',
+                    borderColor: previewBorder,
                     paddingHorizontal: 14,
                     paddingVertical: Platform.OS === 'ios' ? 14 : 12,
                     fontSize: 16,
-                    color: '#111827',
+                    color: previewText,
                   }}
                 />
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 22 }}>
@@ -1093,20 +1125,21 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
                       Keyboard.dismiss();
                       setEmailRecipientModal(false);
                     }}
-                    style={{ paddingVertical: 12, paddingHorizontal: 16 }}
+                    style={({ pressed }) => ({ paddingVertical: 12, paddingHorizontal: 14, opacity: pressed ? 0.7 : 1 })}
                   >
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#6b7280' }}>Cancel</Text>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: previewMuted }}>Cancel</Text>
                   </Pressable>
                   <Pressable
-                    onPress={submitInvoiceShareEmail}
-                    style={{
+                    onPress={submitEmailClient}
+                    style={({ pressed }) => ({
                       paddingVertical: 12,
                       paddingHorizontal: 20,
                       borderRadius: 24,
                       backgroundColor: palette.primary,
-                    }}
+                      opacity: pressed ? 0.78 : 1,
+                    })}
                   >
-                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>Send</Text>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>Open</Text>
                   </Pressable>
                 </View>
               </View>
@@ -1114,6 +1147,71 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Grid View Inline */}
+      {isGridMode && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 10, paddingBottom: 100 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 18 }}>
+            {TEMPLATES.map(t => {
+              const isActive = t.id === templateId;
+              return (
+                <View key={t.id} style={{ width: '47%' }}>
+                  <Pressable
+                    onPress={() => handleSelectFromGrid(t.id)}
+                    style={[
+                      pvS.templateCard,
+                      {
+                      borderWidth: 2.5,
+                        borderColor: isActive ? palette.primary : previewBorder,
+                      },
+                    ]}
+                  >
+                    {/* pointer-events none so taps reach the Pressable */}
+                    <View style={{ flex: 1, pointerEvents: 'none' }}>
+                      <WebView
+                        source={{ html: getInvoicePreviewHtml(generateInvoiceHtml(t.id, invoice, sym)) }}
+                        style={{ flex: 1 }}
+                        scalesPageToFit={false}
+                        scrollEnabled={false}
+                        showsVerticalScrollIndicator={false}
+                        showsHorizontalScrollIndicator={false}
+                        injectedJavaScript={PREVIEW_JS}
+                        onMessage={() => {}}
+                      />
+                    </View>
+                    {/* selected overlay */}
+                    {isActive && (
+                      <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: `${palette.primary}10`, pointerEvents: 'none' }} />
+                    )}
+                    {/* checkmark badge */}
+                    {isActive && (
+                      <View style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 11, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon source="check" size={14} color="#fff" />
+                      </View>
+                    )}
+                  </Pressable>
+                  <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: isActive ? palette.primary : previewText, textAlign: 'center', marginTop: 8 }}>
+                    {t.name}
+                  </Text>
+                  <Text numberOfLines={1} style={{ fontSize: 11, color: previewMuted, textAlign: 'center', marginTop: 2 }}>
+                    {t.description}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Floating Action Button for Template Selection */}
+      <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: Math.max(insets.bottom, 12) + 10, backgroundColor: previewBg, zIndex: 10 }}>
+        <Pressable
+          style={pvS.floatingButton}
+          onPress={toggleGridMode}
+        >
+          <Icon source={isGridMode ? "close" : "view-grid-outline"} size={28} color="#fff" />
+        </Pressable>
+      </View>
 
       {/* ── Brand / Identity Settings Modal ─────────────────────────────── */}
       <Modal visible={showBrandModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowBrandModal(false)}>
@@ -1261,9 +1359,13 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
 // ── Preview styles ────────────────────────────────────────────────────────────
 const pvS = StyleSheet.create({
-  toolbar:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12 },
+  toolbar:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 12 },
+  toolbarIcon:        { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
   toolbarClose:       { padding: 8, backgroundColor: '#e5e7eb', borderRadius: 20 },
   exportBtn:          { padding: 8, borderRadius: 20, width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  previewPage:        { width: '100%', aspectRatio: 210 / 297, borderRadius: 8, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, elevation: 3 },
+  templateCard:       { aspectRatio: 210 / 297, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', elevation: 2 },
+  floatingButton:     { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center', elevation: 6 },
 });
 
 // ── Main screen styles ────────────────────────────────────────────────────────

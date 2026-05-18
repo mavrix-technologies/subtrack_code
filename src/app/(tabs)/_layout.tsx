@@ -176,7 +176,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="expenses" />
       <Tabs.Screen name="invoices" />
       <Tabs.Screen name="settings" />
-      <Tabs.Screen name="insights" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -1,12 +1,18 @@
 import { getFirebaseBundle } from '@/services/firebase';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 type AnalyticsParams = Record<string, string | number | boolean | null | undefined>;
 
 const isNative = Platform.OS === 'android' || Platform.OS === 'ios';
+// Check if running in Expo (development) vs native build
+const isExpoApp = Constants.appOwnership === 'expo';
+
 let nativeAnalytics: any | null | undefined;
+let nativeAnalyticsModule: any | null | undefined;
 let webAnalytics: any | null | undefined;
 let webAnalyticsModule: any | null | undefined;
+let analyticsInitialized = false;
 
 function cleanParams(params?: AnalyticsParams) {
   if (!params) return undefined;
@@ -21,13 +27,17 @@ function cleanParams(params?: AnalyticsParams) {
 }
 
 function getNativeAnalytics() {
-  if (!isNative) return null;
+  // Don't attempt to load native Firebase in Expo development
+  if (!isNative || isExpoApp) return null;
   if (nativeAnalytics !== undefined) return nativeAnalytics;
 
   try {
-    const analyticsModule = require('@react-native-firebase/analytics');
-    nativeAnalytics = analyticsModule.default?.() ?? analyticsModule();
-  } catch {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    nativeAnalyticsModule = require('@react-native-firebase/analytics');
+    nativeAnalytics = nativeAnalyticsModule.getAnalytics();
+  } catch (error) {
+    // Firebase native module not available in this environment
+    console.debug('[Analytics] Native Firebase unavailable:', (error as Error).message);
     nativeAnalytics = null;
   }
 
@@ -60,15 +70,28 @@ async function getWebAnalytics() {
 
 export async function initializeAnalytics() {
   try {
+    // Prevent double initialization
+    if (analyticsInitialized) return;
+    analyticsInitialized = true;
+
     if (isNative) {
-      await getNativeAnalytics()?.setAnalyticsCollectionEnabled?.(true);
-      await getNativeAnalytics()?.logAppOpen?.();
+      // Retry native analytics initialization with a small delay to allow native bridge setup
+      const analytics = getNativeAnalytics();
+      if (analytics && nativeAnalyticsModule) {
+        try {
+          await nativeAnalyticsModule.setAnalyticsCollectionEnabled(analytics, true);
+          await nativeAnalyticsModule.logEvent(analytics, 'app_open');
+        } catch (error) {
+          console.debug('[Analytics] Failed to initialize native analytics:', (error as Error).message);
+        }
+      }
       return;
     }
 
     await getWebAnalytics();
-  } catch {
+  } catch (error) {
     // Analytics should never block the app.
+    console.debug('[Analytics] Initialization error:', (error as Error).message);
   }
 }
 
@@ -77,8 +100,8 @@ export async function trackEvent(name: string, params?: AnalyticsParams) {
 
   try {
     const native = getNativeAnalytics();
-    if (native) {
-      await native.logEvent(name, eventParams);
+    if (native && nativeAnalyticsModule) {
+      await nativeAnalyticsModule.logEvent(native, name, eventParams ?? {});
       return;
     }
 
@@ -94,10 +117,10 @@ export async function trackEvent(name: string, params?: AnalyticsParams) {
 export async function trackScreenView(screenName: string) {
   try {
     const native = getNativeAnalytics();
-    if (native) {
-      await native.logScreenView?.({
-        screen_name: screenName,
-        screen_class: screenName,
+    if (native && nativeAnalyticsModule) {
+      await nativeAnalyticsModule.logEvent(native, 'screen_view', {
+        firebase_screen: screenName,
+        firebase_screen_class: screenName,
       });
       return;
     }
@@ -114,8 +137,8 @@ export async function trackScreenView(screenName: string) {
 export async function setAnalyticsUserId(userId?: string | null) {
   try {
     const native = getNativeAnalytics();
-    if (native) {
-      await native.setUserId(userId ?? null);
+    if (native && nativeAnalyticsModule) {
+      await nativeAnalyticsModule.setUserId(native, userId ?? null);
       return;
     }
 

@@ -13,6 +13,30 @@ import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Modal,
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const PAYMENT_METHOD_OPTIONS = [
+  'UPI',
+  'Credit Card',
+  'Debit Card',
+  'Net Banking',
+  'Wallet',
+  'Google Pay',
+  'Apple Pay',
+  'PayPal',
+  'Cash',
+  'Other',
+];
+
+function getPaymentMethodIcon(method: string) {
+  const lower = method.toLowerCase();
+  if (lower.includes('upi') || lower.includes('google')) return 'qrcode-scan';
+  if (lower.includes('card') || lower.includes('••••')) return 'credit-card-outline';
+  if (lower.includes('bank')) return 'bank-outline';
+  if (lower.includes('wallet')) return 'wallet-outline';
+  if (lower.includes('apple')) return 'apple';
+  if (lower.includes('paypal')) return 'alpha-p-circle-outline';
+  if (lower.includes('cash')) return 'cash';
+  return 'dots-horizontal-circle-outline';
+}
 
 export default function AddScreen() {
   const { palette } = useTheme();
@@ -49,7 +73,7 @@ export default function AddScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [planDetails, setPlanDetails] = useState('Premium');
-  const [paymentMethod, setPaymentMethod] = useState('•••• 3096');
+  const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [billingMenuVisible, setBillingMenuVisible] = useState(false);
   const [planMenuVisible, setPlanMenuVisible] = useState(false);
   const [paymentMenuVisible, setPaymentMenuVisible] = useState(false);
@@ -449,10 +473,7 @@ export default function AddScreen() {
             <Text style={styles.paymentMethodTitle} numberOfLines={1}>Payment method</Text>
               <View style={styles.paymentMethodRight}>
                 <View style={styles.cardPreview}>
-                  <View style={styles.mcCircles}>
-                    <View style={[styles.mcCircle, { backgroundColor: '#EB001B', right: -6 }]} />
-                    <View style={[styles.mcCircle, { backgroundColor: '#F79E1B' }]} />
-                  </View>
+                  <Icon source={getPaymentMethodIcon(paymentMethod)} size={16} color={palette.primary} />
                   <Text style={styles.cardNumber} numberOfLines={1}>{paymentMethod}</Text>
                 </View>
                 <Icon source={paymentMenuVisible ? "chevron-up" : "chevron-down"} size={16} color={palette.muted} />
@@ -460,13 +481,16 @@ export default function AddScreen() {
             </Pressable>
             {paymentMenuVisible && (
               <View style={styles.inlineDropdown}>
-                {['•••• 3096', '•••• 4242', 'Apple Pay', 'PayPal'].map((opt, index, arr) => (
+                {PAYMENT_METHOD_OPTIONS.map((opt, index, arr) => (
                   <Pressable 
                     key={opt} 
                     style={[styles.inlineDropdownItem, index === arr.length - 1 && { borderBottomWidth: 0 }]} 
                     onPress={() => { setPaymentMethod(opt); setPaymentMenuVisible(false); }}
                   >
-                    <Text style={[styles.inlineDropdownText, paymentMethod === opt && { color: palette.primary, fontWeight: '600' }]}>{opt}</Text>
+                    <View style={styles.dropdownOptionLeft}>
+                      <Icon source={getPaymentMethodIcon(opt)} size={18} color={paymentMethod === opt ? palette.primary : palette.muted} />
+                      <Text style={[styles.inlineDropdownText, paymentMethod === opt && { color: palette.primary, fontWeight: '600' }]}>{opt}</Text>
+                    </View>
                     {paymentMethod === opt && <Icon source="check" size={18} color={palette.primary} />}
                   </Pressable>
                 ))}
@@ -824,6 +848,13 @@ const createStyles = (palette: any) => StyleSheet.create({
     fontSize: 16,
     color: palette.text,
   },
+  dropdownOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
   paymentMethodTitle: {
     flexShrink: 1,
     fontSize: 16,
@@ -863,8 +894,7 @@ const createStyles = (palette: any) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: palette.text,
-    letterSpacing: 1,
-    maxWidth: 90,
+    maxWidth: 120,
   },
   footer: {
     position: 'absolute',

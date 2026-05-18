@@ -7,13 +7,13 @@ import {
   signUpWithEmail,
 } from '@/services/auth';
 import { signInWithGoogle } from '@/services/googleAuth';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Image as RNImage,
   Platform,
   Pressable,
   ScrollView,
@@ -155,28 +155,31 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Hero ── */}
-        <LinearGradient
-          colors={['#1e1b4b', '#3730a3', '#4338ca']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
+        <View
+          style={[
+            styles.hero,
+            {
+              backgroundColor: theme === 'dark' ? '#111827' : '#FFFFFF',
+              borderColor: theme === 'dark' ? '#273244' : palette.line,
+            },
+          ]}
         >
-          {/* Decorative circles */}
-          <View style={styles.decor1} />
-          <View style={styles.decor2} />
-          <View style={styles.decor3} />
-
           <View style={styles.logoRing}>
-            <Icon source="credit-card-outline" size={32} color="#fff" />
+            <RNImage
+              source={require('../../assets/SubTrack_Assets/SubTrack_Android_Icon.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.heroTitle}>SubTrack</Text>
-          <Text style={styles.heroSub}>Track every subscription, effortlessly.</Text>
+          <Text style={[styles.heroKicker, { color: theme === 'dark' ? '#FDBA74' : '#EA580C' }]}>Subscription Manager</Text>
+          <Text style={[styles.heroTitle, { color: palette.text }]}>SubTrack</Text>
+          <Text style={[styles.heroSub, { color: palette.muted }]}>Track renewals, spending, invoices, and reminders in one calm place.</Text>
 
           {/* Version badge */}
-          <View style={styles.versionBadge}>
-            <Text style={styles.versionText}>v1.2</Text>
+          <View style={[styles.versionBadge, { backgroundColor: theme === 'dark' ? '#1F2937' : '#F9FAFB', borderColor: theme === 'dark' ? '#374151' : palette.line }]}>
+            <Text style={[styles.versionText, { color: theme === 'dark' ? '#FDBA74' : '#C2410C' }]}>v1.2.1</Text>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* ── Card ── */}
         <View style={styles.card}>
@@ -229,6 +232,15 @@ export default function LoginScreen() {
               <Text style={[styles.googleBtnText, { color: palette.text }]}>Google</Text>
             </Pressable>
           </View>
+
+          <Pressable
+            style={[styles.guestBtn, { borderColor: `${palette.primary}55`, backgroundColor: `${palette.primary}12` }]}
+            onPress={handleGuest}
+            disabled={loading}
+          >
+            <Icon source="incognito" size={18} color={palette.primary} />
+            <Text style={[styles.guestBtnText, { color: palette.primary }]}>Continue as Guest</Text>
+          </Pressable>
 
           {/* Divider */}
           <View style={styles.divider}>
@@ -325,22 +337,6 @@ export default function LoginScreen() {
             )}
           </Pressable>
 
-          {/* Guest */}
-          <View style={styles.divider}>
-            <View style={[styles.dividerLine, { backgroundColor: palette.line }]} />
-            <Text style={[styles.dividerText, { color: palette.muted }]}>or</Text>
-            <View style={[styles.dividerLine, { backgroundColor: palette.line }]} />
-          </View>
-
-          <Pressable
-            style={[styles.ghostBtn, { borderColor: palette.line, backgroundColor: palette.background }]}
-            onPress={handleGuest}
-            disabled={loading}
-          >
-            <Icon source="incognito" size={17} color={palette.muted} />
-            <Text style={[styles.ghostBtnText, { color: palette.muted }]}>Continue as Guest</Text>
-          </Pressable>
-
           {/* Switch mode */}
           <Pressable style={styles.switchRow} onPress={() => { clearError(); setMode(m => m === 'signin' ? 'signup' : 'signin'); }}>
             <Text style={[styles.switchText, { color: palette.muted }]}>
@@ -381,53 +377,53 @@ const createStyles = (palette: any, theme: 'light' | 'dark') => StyleSheet.creat
   hero: {
     marginHorizontal: 16,
     marginTop: 16,
-    borderRadius: 28,
-    paddingVertical: 40,
-    paddingHorizontal: 28,
+    borderRadius: 12,
+    paddingTop: 28,
+    paddingBottom: 26,
+    paddingHorizontal: 24,
     alignItems: 'center',
     overflow: 'hidden',
-    minHeight: 220,
+    minHeight: 236,
     justifyContent: 'center',
-  },
-  decor1: {
-    position: 'absolute', top: -60, right: -40,
-    width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  decor2: {
-    position: 'absolute', bottom: -50, left: -30,
-    width: 140, height: 140, borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  decor3: {
-    position: 'absolute', top: 20, left: -20,
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
   },
   logoRing: {
-    width: 68, height: 68, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    width: 86, height: 86, borderRadius: 12,
+    backgroundColor: '#0F172A',
     justifyContent: 'center', alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: '#F97316',
+  },
+  logoImage: {
+    width: 74,
+    height: 74,
+    borderRadius: 8,
+  },
+  heroKicker: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
   heroTitle: {
-    fontSize: 30, fontWeight: '800', color: '#fff',
-    letterSpacing: -0.5, marginBottom: 6,
+    fontSize: 34, fontWeight: '900',
+    letterSpacing: 0, marginBottom: 8,
   },
   heroSub: {
-    fontSize: 13, color: 'rgba(255,255,255,0.65)',
-    fontWeight: '500', textAlign: 'center',
+    maxWidth: 300,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600', textAlign: 'center',
   },
   versionBadge: {
     position: 'absolute', top: 14, right: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 10, paddingVertical: 4,
+    paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: 20,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
   },
-  versionText: { fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
+  versionText: { fontSize: 11, fontWeight: '800' },
 
   // ── Card ──────────────────────────────────────────────────────────────
   card: {
@@ -496,6 +492,17 @@ const createStyles = (palette: any, theme: 'light' | 'dark') => StyleSheet.creat
     borderWidth: 1.5,
   },
   googleBtnText: { fontSize: 15, fontWeight: '600' },
+  guestBtn: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    marginBottom: 2,
+  },
+  guestBtnText: { fontSize: 15, fontWeight: '800' },
 
   // ── Divider ───────────────────────────────────────────────────────────
   divider: {
@@ -532,13 +539,6 @@ const createStyles = (palette: any, theme: 'light' | 'dark') => StyleSheet.creat
   },
   btnDisabled: { opacity: 0.6 },
   primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-
-  ghostBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, borderRadius: 16, paddingVertical: 13,
-    borderWidth: 1.5,
-  },
-  ghostBtnText: { fontSize: 14, fontWeight: '600' },
 
   // ── Switch ────────────────────────────────────────────────────────────
   switchRow: { alignItems: 'center', marginTop: 18 },

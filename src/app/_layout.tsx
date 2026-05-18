@@ -129,6 +129,12 @@ function AnalyticsInitializer() {
 /** Reads live palette so native headers always match the app theme */
 function ThemedStack() {
   const { palette, theme } = useTheme();
+  const { status, user } = useAppData();
+
+  if (status === 'booting') {
+    return <View style={{ flex: 1, backgroundColor: palette.background }} />;
+  }
+
   return (
     <>
       <StatusBar
@@ -137,6 +143,7 @@ function ThemedStack() {
         translucent={false}
       />
       <Stack
+        initialRouteName={user ? '(tabs)' : 'login'}
         screenOptions={{
           headerShadowVisible: false,
           headerBackTitle: '',

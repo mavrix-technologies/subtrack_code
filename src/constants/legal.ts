@@ -36,7 +36,7 @@ export const legalPages = {
       {
         title: 'Advertising and third-party services',
         body: [
-          'SubTrack uses Google AdMob and the Google Mobile Ads SDK to show ads. Google and its partners may process device, app, advertising ID, diagnostics, and ad interaction information to serve, measure, and improve ads.',
+          'SubTrack uses Google AdMob and the Google Mobile Ads SDK to show limited ads around export and sharing actions. Google and its partners may process device, app, advertising ID, diagnostics, and ad interaction information to serve, measure, and improve ads.',
           'SubTrack also uses services such as Firebase, Google Sign-In, Expo services, and device operating-system services for authentication, storage, notifications, updates, diagnostics, and app operation.',
           'These third-party services process information according to their own privacy policies and platform rules.',
         ],
@@ -105,7 +105,7 @@ export const legalPages = {
       {
         title: 'Ads and third-party services',
         body: [
-          'SubTrack may display ads and use third-party services. Ads are intended to be distinguishable from app content and must not be clicked fraudulently or manipulated.',
+          'SubTrack may display limited ads and use third-party services. Ads are intended to be distinguishable from app content and must not be clicked fraudulently or manipulated.',
           'Third-party services, links, SDKs, and ads are not controlled by SubTrack and may be subject to separate terms and policies.',
         ],
       },

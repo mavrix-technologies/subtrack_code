@@ -1,4 +1,4 @@
-import { SplitExpenseEditor } from '@/components/expense/SplitExpenseEditor';
+import { SplitExpenseEditor, type SplitParticipantDraft } from '@/components/expense/SplitExpenseEditor';
 import { useAppData } from '@/contexts/app-data';
 import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';
@@ -57,7 +57,7 @@ export default function AddExpenseScreen() {
   const [submitting,   setSubmitting]   = useState(false);
   const [isSplit,      setIsSplit]      = useState(false);
   const [splitType,    setSplitType]    = useState<'equal' | 'custom'>('equal');
-  const [participants, setParticipants] = useState([
+  const [participants, setParticipants] = useState<SplitParticipantDraft[]>([
     { id: '1', name: 'You', amount: 0, email: '', details: '', color: COLORS[0] },
   ]);
 

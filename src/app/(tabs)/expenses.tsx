@@ -1,3 +1,4 @@
+import { InlineNativeAd } from '@/components/ads/InlineNativeAd';
 import { ExpenseItem } from '@/components/expense/ExpenseItem';
 import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';
@@ -82,6 +83,47 @@ export default function ExpensesScreen() {
     }
     return result;
   }, [dateFilter, expenses, selectedCategory, searchQuery, splitOnly]);
+
+  const expenseReport = useMemo(() => {
+    const now = new Date();
+    const lastSixMonths = Array.from({ length: 6 }, (_, index) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+      return {
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleDateString(undefined, { month: 'short' }),
+        total: 0,
+      };
+    });
+    const monthMap = new Map(lastSixMonths.map((m) => [m.key, m]));
+    const categoryTotals = new Map<string, number>();
+    let filteredTotal = 0;
+    let splitTotal = 0;
+
+    for (const expense of filteredExpenses) {
+      filteredTotal += expense.amount;
+      if (expense.isSplit) splitTotal += expense.amount;
+      categoryTotals.set(expense.category || 'Other', (categoryTotals.get(expense.category || 'Other') || 0) + expense.amount);
+    }
+
+    for (const expense of expenses) {
+      const d = new Date(expense.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const month = monthMap.get(key);
+      if (month) month.total += expense.amount;
+    }
+
+    const categories = Array.from(categoryTotals.entries())
+      .map(([category, total]) => ({
+        category,
+        total,
+        percentage: filteredTotal > 0 ? Math.round((total / filteredTotal) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+
+    const average = filteredExpenses.length > 0 ? filteredTotal / filteredExpenses.length : 0;
+    return { categories, months: lastSixMonths, filteredTotal, average, splitTotal };
+  }, [expenses, filteredExpenses]);
 
   const groupedExpenses = useMemo(() => {
     const groups: { title: string; key: string; items: typeof filteredExpenses }[] = [];
@@ -261,6 +303,69 @@ export default function ExpensesScreen() {
           </ScrollView>
         </View>
 
+        {filteredExpenses.length > 0 && (
+          <View style={styles.reportOuter}>
+            <View style={styles.reportPanel}>
+              <View style={styles.reportHeader}>
+                <View>
+                  <Text style={styles.reportTitle}>Expense report</Text>
+                  <Text style={styles.reportSub}>Filtered spend and trends</Text>
+                </View>
+                <View style={styles.reportTotalBox}>
+                  <Text style={styles.reportTotalLabel}>Total</Text>
+                  <Text style={styles.reportTotal}>{formatAmount(expenseReport.filteredTotal)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.metricsRow}>
+                <View style={styles.metricBox}>
+                  <Text style={styles.metricLabel}>Average</Text>
+                  <Text style={styles.metricValue}>{formatAmount(expenseReport.average)}</Text>
+                </View>
+                <View style={styles.metricBox}>
+                  <Text style={styles.metricLabel}>Split total</Text>
+                  <Text style={styles.metricValue}>{formatAmount(expenseReport.splitTotal)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.chartBlock}>
+                <Text style={styles.chartTitle}>By category</Text>
+                {expenseReport.categories.map((item) => (
+                  <View key={item.category} style={styles.barRow}>
+                    <Text style={styles.barLabel} numberOfLines={1}>{item.category}</Text>
+                    <View style={styles.barTrack}>
+                      <View style={[styles.barFill, { width: `${Math.max(6, item.percentage)}%` }]} />
+                    </View>
+                    <Text style={styles.barValue}>{item.percentage}%</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.chartBlock}>
+                <Text style={styles.chartTitle}>Last 6 months</Text>
+                <View style={styles.monthGraph}>
+                  {expenseReport.months.map((month) => {
+                    const maxMonth = Math.max(...expenseReport.months.map((m) => m.total), 1);
+                    const height = month.total > 0 ? 18 + Math.round((month.total / maxMonth) * 62) : 8;
+                    return (
+                      <View key={month.key} style={styles.monthColumn}>
+                        <View style={[styles.monthBar, { height }]} />
+                        <Text style={styles.monthLabel}>{month.label}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {filteredExpenses.length > 0 && (
+          <View style={styles.inlineAdWrap}>
+            <InlineNativeAd style={styles.inlineAd} />
+          </View>
+        )}
+
         <View style={{ paddingHorizontal: 24 }}>
         {filteredExpenses.length === 0 ? (
           <View style={styles.emptyState}>
@@ -383,6 +488,143 @@ function createStyles(palette: any) {
     filterText: {
       fontSize: 13,
       fontWeight: '500',
+    },
+    reportOuter: {
+      paddingHorizontal: 24,
+      marginBottom: 18,
+    },
+    inlineAdWrap: {
+      paddingHorizontal: 24,
+    },
+    inlineAd: {
+      marginBottom: 18,
+    },
+    reportPanel: {
+      backgroundColor: palette.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: palette.line,
+      padding: 16,
+    },
+    reportHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+      alignItems: 'flex-start',
+    },
+    reportTitle: {
+      fontSize: 17,
+      fontWeight: '800',
+      color: palette.text,
+    },
+    reportSub: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: palette.muted,
+      marginTop: 3,
+    },
+    reportTotalBox: {
+      alignItems: 'flex-end',
+      flexShrink: 0,
+    },
+    reportTotalLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: palette.muted,
+      textTransform: 'uppercase',
+    },
+    reportTotal: {
+      fontSize: 18,
+      fontWeight: '900',
+      color: palette.primary,
+      marginTop: 2,
+    },
+    metricsRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 14,
+    },
+    metricBox: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: palette.line,
+      borderRadius: 10,
+      padding: 12,
+      backgroundColor: palette.background,
+    },
+    metricLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: palette.muted,
+      textTransform: 'uppercase',
+    },
+    metricValue: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: palette.text,
+      marginTop: 5,
+    },
+    chartBlock: {
+      marginTop: 16,
+      gap: 10,
+    },
+    chartTitle: {
+      fontSize: 13,
+      fontWeight: '900',
+      color: palette.text,
+    },
+    barRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    barLabel: {
+      width: 86,
+      fontSize: 12,
+      fontWeight: '700',
+      color: palette.muted,
+    },
+    barTrack: {
+      flex: 1,
+      height: 9,
+      borderRadius: 5,
+      backgroundColor: palette.background,
+      overflow: 'hidden',
+    },
+    barFill: {
+      height: '100%',
+      borderRadius: 5,
+      backgroundColor: palette.primary,
+    },
+    barValue: {
+      width: 36,
+      textAlign: 'right',
+      fontSize: 12,
+      fontWeight: '800',
+      color: palette.text,
+    },
+    monthGraph: {
+      minHeight: 112,
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 10,
+    },
+    monthColumn: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 6,
+      minWidth: 0,
+    },
+    monthBar: {
+      width: '70%',
+      maxWidth: 28,
+      borderRadius: 7,
+      backgroundColor: palette.primary,
+    },
+    monthLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: palette.muted,
     },
     listContent: {
       paddingBottom: 120,

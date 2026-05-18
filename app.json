@@ -10,14 +10,19 @@
     "ios": {
       "icon": "./assets/SubTrack_Assets/SubTrack_Icon.png",
       "bundleIdentifier": "com.subtrackapp.ios",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow photo access so SubTrack can save invoice images.",
+        "NSPhotoLibraryAddUsageDescription": "Allow SubTrack to save invoice images to your photo library."
+      }
     },
     "android": {
+      "icon": "./assets/SubTrack_Assets/SubTrack_Android_Icon.png",
       "package": "com.subtrackapp.android",
       "versionCode": 9,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/SubTrack_Assets/SubTrack_Icon.png",
+        "foregroundImage": "./assets/SubTrack_Assets/SubTrack_Adaptive_Foreground.png",
         "backgroundColor": "#0F172A"
       },
       "predictiveBackGestureEnabled": false,
@@ -25,8 +30,7 @@
       "permissions": [
         "com.google.android.gms.permission.AD_ID",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.ACCESS_MEDIA_LOCATION"
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
@@ -96,6 +100,17 @@
         }
       ],
       "expo-font",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow SubTrack to save invoice images to your photo library.",
+          "savePhotosPermission": "Allow SubTrack to save invoice images to your photo library.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": [
+            "photo"
+          ]
+        }
+      ],
       [
         "expo-image-picker",
         {
