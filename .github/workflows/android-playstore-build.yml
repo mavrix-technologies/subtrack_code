@@ -2,49 +2,40 @@ name: Android Play Store Build
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 concurrency:
-  group: android-playstore-build
+  group: android-playstore-build-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Build Android AAB
+    name: Build production Android AAB on EAS
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     permissions:
       contents: read
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Resolve Expo token
+      - name: Check Expo token
         env:
           EXPO_TOKEN_SECRET: ${{ secrets.EXPO_TOKEN }}
           SUBTRACK_SECRET: ${{ secrets.SUBTRACK }}
         run: |
-          if [ -n "$EXPO_TOKEN_SECRET" ]; then
-            echo "EXPO_TOKEN=$EXPO_TOKEN_SECRET" >> "$GITHUB_ENV"
-          elif [ -n "$SUBTRACK_SECRET" ]; then
-            echo "EXPO_TOKEN=$SUBTRACK_SECRET" >> "$GITHUB_ENV"
-          else
+          if [ -z "$EXPO_TOKEN_SECRET" ] && [ -z "$SUBTRACK_SECRET" ]; then
             echo "::error::Missing Expo token. Create an Expo access token, then add it as a GitHub repository secret named EXPO_TOKEN."
-            echo "::error::This workflow also accepts an existing repository secret named SUBTRACK as a fallback."
-            echo "::error::GitHub path: Settings > Secrets and variables > Actions > New repository secret."
             exit 1
           fi
 
@@ -53,30 +44,21 @@ jobs:
         with:
           eas-version: 18.13.0
           packager: npm
+          token: ${{ secrets.EXPO_TOKEN || secrets.SUBTRACK }}
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
       - name: Verify EAS auth
         run: eas whoami
 
-      - name: Build production AAB locally
+      - name: Build production Android AAB
         env:
           EXPO_NO_TELEMETRY: 1
-        run: |
-          mkdir -p artifacts
-          eas build \
-            --platform android \
-            --profile production \
-            --local \
-            --non-interactive \
-            --verbose-logs \
-            --build-logger-level debug \
-            --output ./artifacts/subtrack-playstore-${{ github.run_number }}.aab
-
-      - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: subtrack-playstore-aab
-          path: artifacts/*.aab
-          if-no-files-found: error
+        run: eas build --platform android --profile production --non-interactive --wait
