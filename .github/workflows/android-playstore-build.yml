@@ -17,15 +17,19 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
+    env:
+      CI: 1
+      NODE_ENV: production
+      EXPO_NO_TELEMETRY: 1
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -59,6 +63,4 @@ jobs:
         run: eas whoami
 
       - name: Build production Android AAB
-        env:
-          EXPO_NO_TELEMETRY: 1
         run: eas build --platform android --profile production --non-interactive --wait
