@@ -151,15 +151,17 @@ export default function ExpensesScreen() {
 
   const remindAgain = async (expense: any) => {
     if (!expense.isSplit || !expense.participants?.length) return;
-    const alarmOk = await scheduleSplitReminderAlarm({ expenseName: expense.name, dateIso: expense.date });
-    const emailState = await sendSplitExpenseReminderEmail({
-      expenseName: expense.name,
-      totalAmount: expense.amount,
-      currencySymbol: currency.symbol,
-      dateIso: expense.date,
-      splitType: expense.splitType,
-      participants: expense.participants,
-    });
+    const [alarmOk, emailState] = await Promise.all([
+      scheduleSplitReminderAlarm({ expenseName: expense.name, dateIso: expense.date }),
+      sendSplitExpenseReminderEmail({
+        expenseName: expense.name,
+        totalAmount: expense.amount,
+        currencySymbol: currency.symbol,
+        dateIso: expense.date,
+        splitType: expense.splitType,
+        participants: expense.participants,
+      }),
+    ]);
     if (emailState === 'sent' && alarmOk) {
       Alert.alert('Reminders sent', 'Alarm set. Each participant with an email got their own reminder.');
       return;

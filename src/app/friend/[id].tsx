@@ -3,6 +3,7 @@ import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';
 import { deleteSplitFriend, updateSplitFriend } from '@/services/splitFriendService';
 import { useExpenseStore } from '@/store/useExpenseStore';
+import { formatShortDate } from '@/utils/dates';
 import { useSplitFriendStore } from '@/store/useSplitFriendStore';
 import {
   getSplitExpensesForFriend,
@@ -29,7 +30,7 @@ export default function SplitFriendDetailScreen() {
   const friend = friends.find((f) => f.id === id);
   const related = useMemo(() => (friend ? getSplitExpensesForFriend(expenses, friend) : []), [expenses, friend]);
   const sortedRelated = useMemo(
-    () => [...related].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    () => related.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [related]
   );
   const totalShare = useMemo(() => {
@@ -127,7 +128,8 @@ export default function SplitFriendDetailScreen() {
       <FlatList
         data={sortedRelated}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        contentInset={{ bottom: insets.bottom + 24 }}
+        scrollIndicatorInsets={{ bottom: insets.bottom + 24 }}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
@@ -220,11 +222,7 @@ export default function SplitFriendDetailScreen() {
                   {item.name}
                 </Text>
                 <Text style={[styles.histDate, { color: palette.muted }]}>
-                  {new Date(item.date).toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
+                  {formatShortDate(item.date)}
                 </Text>
               </View>
               <Text style={[styles.histAmt, { color: palette.text }]}>{formatAmount(share)}</Text>

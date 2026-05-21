@@ -106,9 +106,10 @@ function makeIntervalTrigger(N: any, seconds: number, channelId: string): any {
 // ── Sync renewal notifications ────────────────────────────────────────────────
 
 export async function syncRenewalNotifications(subscriptions: Subscription[]) {
-  const N = await getNotifications();
-
-  const granted = await requestNotificationPermission();
+  const [N, granted] = await Promise.all([
+    getNotifications(),
+    requestNotificationPermission(),
+  ]);
   if (!granted) return { scheduled: 0, permission: 'denied' as const };
 
   await N.cancelAllScheduledNotificationsAsync();
@@ -185,9 +186,10 @@ export async function cancelScheduledNotifications() {
 // ── Instant test notification ─────────────────────────────────────────────────
 
 export async function sendTestNotification(sub: Subscription): Promise<void> {
-  const N = await getNotifications();
-
-  const granted = await requestNotificationPermission();
+  const [N, granted] = await Promise.all([
+    getNotifications(),
+    requestNotificationPermission(),
+  ]);
   if (!granted) throw new Error('Notification permission was not granted.');
 
   const price = formatPrice(sub);

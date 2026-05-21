@@ -11,7 +11,8 @@ import { getPendingInvoicesTotal, getTotalMonthlySpending } from '@/utils/calcul
 import { formatDisplayDate, getRelativeRenewalLabel } from '@/utils/dates';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Icon } from 'react-native-paper';
 import Animated, { FadeInDown, FadeInRight, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -156,7 +157,7 @@ function HomeTrendChart({
           const barH = Math.max(ratio * (BAR_HEIGHT - 24), 4);
           return (
             <Pressable
-              key={index}
+              key={`${period}-bar-${labels[index]}`}
               onPress={() => onBarPress(index)}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: BAR_HEIGHT }}
             >
@@ -172,7 +173,7 @@ function HomeTrendChart({
               )}
               {isActive && point.total === 0 && (
                 <View style={[styles.barValueBadge, { backgroundColor: palette.muted + '60' }]}>
-                  <Text style={[styles.barValueText, { color: palette.muted }]} numberOfLines={1}>—</Text>
+                  <Text style={[styles.barValueText, { color: palette.muted }]} numberOfLines={1}>-</Text>
                 </View>
               )}
               <View
@@ -193,10 +194,10 @@ function HomeTrendChart({
         {labels.map((label, index) => {
           const isActive = index === activeIdx;
           return (
-            <Pressable key={index} style={{ flex: 1, alignItems: 'center' }} onPress={() => onBarPress(index)}>
+            <Pressable key={`${period}-label-${label}`} style={{ flex: 1, alignItems: 'center' }} onPress={() => onBarPress(index)}>
               <Text
                 style={{
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: isActive ? '800' : '600',
                   color: isActive ? palette.text : palette.muted,
                 }}
@@ -548,7 +549,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     zIndex: 30,
-    elevation: 30,
   },
   heroAmountRow: {
     marginTop: 10,
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   barValueText: {
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -578,7 +578,6 @@ const styles = StyleSheet.create({
   periodMenuWrap: {
     position: 'relative',
     zIndex: 40,
-    elevation: 40,
     flexShrink: 0,
   },
   sectionHeader: {
@@ -743,7 +742,6 @@ function createLayout(palette: any, isCompact: boolean) {
       borderBottomColor: visibleLine,
       boxShadow: '0 10px 24px rgba(15,23,42,0.06)',
       zIndex: 4,
-      elevation: 4,
     },
     heroLabel: {
       color: palette.text,
@@ -771,7 +769,6 @@ function createLayout(palette: any, isCompact: boolean) {
       borderRadius: 16,
       flexShrink: 0,
       zIndex: 30,
-      elevation: 30,
     },
     periodDropdownText: {
       color: palette.text,
@@ -790,7 +787,6 @@ function createLayout(palette: any, isCompact: boolean) {
       backgroundColor: palette.surface,
       boxShadow: '0 10px 24px rgba(15,23,42,0.12)',
       zIndex: 40,
-      elevation: 40,
     },
     periodMenuItem: {
       minHeight: 34,

@@ -17,7 +17,7 @@ export const useSplitFriendStore = create<SplitFriendState>((set) => ({
   upsertFriend: (friend) =>
     set((state) => {
       const idx = state.friends.findIndex((f) => f.id === friend.id);
-      if (idx === -1) return { friends: [...state.friends, friend].sort((a, b) => a.displayName.localeCompare(b.displayName)) };
+      if (idx === -1) return { friends: state.friends.concat(friend).sort((a, b) => a.displayName.localeCompare(b.displayName)) };
       const next = [...state.friends];
       next[idx] = friend;
       return { friends: next.sort((a, b) => a.displayName.localeCompare(b.displayName)) };

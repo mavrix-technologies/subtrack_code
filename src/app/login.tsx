@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Image as RNImage,
   Platform,
   Pressable,
   ScrollView,
@@ -23,6 +22,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Image as RNImage } from 'expo-image';
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -435,11 +435,7 @@ const createStyles = (palette: any, theme: 'light' | 'dark') => StyleSheet.creat
     borderWidth: 1,
     borderColor: palette.line,
     ...(theme === 'dark' ? {} : {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.06,
-      shadowRadius: 12,
-      elevation: 3,
+      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
     }),
   },
 
@@ -458,11 +454,7 @@ const createStyles = (palette: any, theme: 'light' | 'dark') => StyleSheet.creat
   },
   toggleBtnActive: {
     backgroundColor: palette.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
   },
   toggleText: { fontSize: 14, fontWeight: '600', color: palette.muted },
   toggleTextActive: { color: palette.text },

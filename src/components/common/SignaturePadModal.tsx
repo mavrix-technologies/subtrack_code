@@ -3,18 +3,18 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  Dimensions,
-  Image,
   Modal,
   PanResponder,
   Platform,
+  Pressable,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Svg, { Path, Rect, SvgXml } from 'react-native-svg';
 
 interface SignaturePadModalProps {
@@ -26,7 +26,6 @@ interface SignaturePadModalProps {
   initialSignature?: string;
 }
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
 type Point = { x: number; y: number };
@@ -66,6 +65,7 @@ export default function SignaturePadModal({
   onLabelChange,
   initialSignature,
 }: SignaturePadModalProps) {
+  const { height } = useWindowDimensions();
   const [paths, setPaths] = useState<StrokePath[]>([]);
   const [currentPath, setCurrentPath] = useState<StrokePath>([]);
   const [uploadedImage, setUploadedImage] = useState<string | null>(initialSignature || null);
@@ -186,10 +186,13 @@ export default function SignaturePadModal({
 
   const handleUpload = useCallback(async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to your photo library.');
-        return;
+      // Android uses the system photo picker for one-off image selection without broad media access.
+      if (Platform.OS !== 'android') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Please allow access to your photo library.');
+          return;
+        }
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
@@ -226,17 +229,17 @@ export default function SignaturePadModal({
 
         {/* ── Header ── */}
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
             onPress={handleClose}
             style={styles.headerBtn}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
+          </Pressable>
 
           <Text style={styles.headerTitle}>Signature Pad</Text>
 
-          <TouchableOpacity
+          <Pressable
             onPress={handleSave}
             style={styles.headerBtn}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -244,7 +247,7 @@ export default function SignaturePadModal({
             <Text style={[styles.saveText, !hasContent && !uploadedImage && styles.saveTextDim]}>
               Save
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* ── Label row ── */}
@@ -262,15 +265,15 @@ export default function SignaturePadModal({
         </View>
 
         {/* ── Canvas card ── */}
-        <View style={styles.card}>
+        <View style={[styles.card, { maxHeight: height * 0.56 }]}>
           {/* Clear button */}
           <View style={styles.cardHeader}>
-            <TouchableOpacity
+            <Pressable
               onPress={handleClear}
               hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
             >
               <Text style={styles.clearText}>Clear</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Drawing surface */}
@@ -308,9 +311,9 @@ export default function SignaturePadModal({
                   style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
                 >
                   <Rect width="100%" height="100%" fill="white" />
-                  {paths.map((p, i) => (
+                  {paths.map((p) => (
                     <Path
-                      key={i}
+                      key={pathToD(p)}
                       d={pathToD(p)}
                       stroke="#1A1A1A"
                       strokeWidth={2.5}
@@ -344,14 +347,13 @@ export default function SignaturePadModal({
         </View>
 
         {/* ── Upload button ── */}
-        <TouchableOpacity
+        <Pressable
           style={styles.uploadBtn}
           onPress={handleUpload}
-          activeOpacity={0.75}
         >
           <Ionicons name="cloud-upload-outline" size={20} color="#444" />
           <Text style={styles.uploadText}>Upload Image</Text>
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Safe-area bottom spacer */}
         <View style={styles.safeBottom} />
@@ -438,7 +440,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     flex: 1,
-    maxHeight: SCREEN_HEIGHT * 0.56,
     boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
   },
   cardHeader: {

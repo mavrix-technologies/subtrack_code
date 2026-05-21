@@ -7,12 +7,22 @@ import { InvoiceItem, computeInvoiceTotals, generateInvoiceNumber, useInvoiceSto
 import * as ImagePicker from 'expo-image-picker';
 import { router, useNavigation } from 'expo-router';
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type ItemDraft = { name: string; description: string; priceStr: string; qty: number };
+type ItemDraft = { id: string; name: string; description: string; priceStr: string; qty: number };
+
+const createItemDraft = (): ItemDraft => ({
+  id: `${Date.now()}-${Math.random()}`,
+  name: '',
+  description: '',
+  priceStr: '',
+  qty: 1,
+});
+
 export default function CreateInvoiceScreen() {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
@@ -39,7 +49,7 @@ export default function CreateInvoiceScreen() {
   const [dueDate, setDueDate]             = useState<Date | null>(null);
   const [showIssuePicker, setShowIssuePicker] = useState(false);
   const [showDuePicker, setShowDuePicker]     = useState(false);
-  const [items, setItems] = useState<ItemDraft[]>([{ name: '', description: '', priceStr: '', qty: 1 }]);
+  const [items, setItems] = useState<ItemDraft[]>(() => [createItemDraft()]);
   const [taxRate, setTaxRate]             = useState('');
   const [discountType, setDiscountType]   = useState<'flat' | 'percent'>('flat');
   const [discountValue, setDiscountValue] = useState('');
@@ -75,11 +85,13 @@ export default function CreateInvoiceScreen() {
       return;
     }
     
-    // For logo, use image picker
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow photo library access to pick an image.');
-      return;
+    // Android uses the system photo picker for one-off image selection without broad media access.
+    if (Platform.OS !== 'android') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow photo library access to pick an image.');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -117,14 +129,18 @@ export default function CreateInvoiceScreen() {
   const itemPriceRefs = useRef<(TextInput | null)[]>([]);
   const itemDescRefs  = useRef<(TextInput | null)[]>([]);
 
-  const validItems: InvoiceItem[] = useMemo(() =>
-    items.filter(i => i.name.trim() && parseFloat(i.priceStr) > 0)
-         .map(i => {
-           const item: InvoiceItem = { name: i.name.trim(), price: parseFloat(i.priceStr), qty: i.qty };
-           if (i.description.trim()) item.description = i.description.trim();
-           return item;
-         }),
-    [items]);
+  const validItems: InvoiceItem[] = useMemo(() => {
+    return items.reduce<InvoiceItem[]>((acc, i) => {
+      const name = i.name.trim();
+      const price = parseFloat(i.priceStr);
+      if (!name || price <= 0) return acc;
+      const item: InvoiceItem = { name, price, qty: i.qty };
+      const description = i.description.trim();
+      if (description) item.description = description;
+      acc.push(item);
+      return acc;
+    }, []);
+  }, [items]);
 
   const totals = useMemo(() =>
     computeInvoiceTotals(validItems, parseFloat(taxRate) || 0, discountType, parseFloat(discountValue) || 0),
@@ -208,7 +224,8 @@ export default function CreateInvoiceScreen() {
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 104 }}
+        contentInset={{ bottom: insets.bottom + 104 }}
+        scrollIndicatorInsets={{ bottom: insets.bottom + 104 }}
       >
         {/* Hero */}
         <View style={[S.hero, { backgroundColor: palette.primary }]}>
@@ -291,7 +308,7 @@ export default function CreateInvoiceScreen() {
           {items.map((item, i) => {
             const lineTotal = (parseFloat(item.priceStr) || 0) * item.qty;
             return (
-              <View key={i}>
+              <View key={item.id}>
                 {i > 0 && <SDivider palette={palette} />}
                 <View style={S.itemBlock}>
                   {/* Name row */}
@@ -371,7 +388,7 @@ export default function CreateInvoiceScreen() {
             );
           })}
           <SDivider palette={palette} />
-          <Pressable style={S.addRow} onPress={() => setItems(p => [...p, { name: '', description: '', priceStr: '', qty: 1 }])}>
+          <Pressable style={S.addRow} onPress={() => setItems(p => [...p, createItemDraft()])}>
             <Icon source="plus-circle-outline" size={20} color={palette.primary} />
             <Text style={[S.addRowText, { color: palette.primary }]}>Add line item</Text>
           </Pressable>
@@ -540,7 +557,7 @@ export default function CreateInvoiceScreen() {
             {/* File Prefix */}
             <View style={S.brandField}>
               <Text style={[S.brandLabel, { color: palette.muted }]}>Export File Prefix</Text>
-              <Text style={{ fontSize: 11, color: palette.muted, marginBottom: 6 }}>
+              <Text style={{ fontSize: 12, color: palette.muted, marginBottom: 6 }}>
                 Files: <Text style={{ fontWeight: '700', color: palette.text }}>{(editPrefix || 'invoice').replace(/[^a-zA-Z0-9_-]/g, '_')}_{invoiceNumber}.pdf</Text>
               </Text>
               <TextInput
@@ -601,7 +618,7 @@ export default function CreateInvoiceScreen() {
                   <View style={{ alignItems: 'center', gap: 6 }}>
                     <Icon source="draw" size={28} color={palette.muted} />
                     <Text style={{ fontSize: 13, color: palette.muted, fontWeight: '600' }}>Draw or Upload Signature</Text>
-                    <Text style={{ fontSize: 11, color: palette.muted }}>Tap to open signature pad</Text>
+                    <Text style={{ fontSize: 12, color: palette.muted }}>Tap to open signature pad</Text>
                   </View>
                 )}
               </Pressable>
@@ -643,7 +660,7 @@ export default function CreateInvoiceScreen() {
       />
       <DateTimePickerModal
         isVisible={showDuePicker}
-        mode="date" date={dueDate ?? new Date()} minimumDate={date}
+        mode="date" date={dueDate ?? date} minimumDate={date}
         onConfirm={d => { setDueDate(d); setShowDuePicker(false); }}
         onCancel={() => setShowDuePicker(false)}
       />
@@ -663,7 +680,7 @@ export default function CreateInvoiceScreen() {
 
 function SLabel({ text, palette }: { text: string; palette: any }) {
   return (
-    <Text style={{ fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7, color: palette.muted, marginHorizontal: 20, marginTop: 22, marginBottom: 7 }}>
+    <Text style={{ fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7, color: palette.muted, marginHorizontal: 20, marginTop: 22, marginBottom: 7 }}>
       {text}
     </Text>
   );
@@ -673,35 +690,38 @@ function SDivider({ palette }: { palette: any }) {
   return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: palette.border }} />;
 }
 
-const SField = React.forwardRef<TextInput, {
+type SFieldProps = {
   icon: string; placeholder: string; value: string;
   onChangeText: (v: string) => void; keyboardType?: any;
   multiline?: boolean; palette: any;
   returnKeyType?: any; onSubmitEditing?: () => void;
-}>(({ icon, placeholder, value, onChangeText, keyboardType, multiline, palette, returnKeyType, onSubmitEditing }, ref) => (
-  <View style={{ flexDirection: 'row', alignItems: multiline ? 'flex-start' : 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, minHeight: 52 }}>
-    <View style={{ marginTop: multiline ? 2 : 0 }}>
-      <Icon source={icon} size={20} color={palette.primary} />
-    </View>
-    <TextInput
-      ref={ref}
-      style={{ flex: 1, fontSize: 15, color: palette.text, paddingVertical: 0, minHeight: multiline ? 64 : 24, textAlignVertical: multiline ? 'top' : 'center' }}
-      placeholder={placeholder}
-      placeholderTextColor={palette.muted}
-      value={value}
-      onChangeText={onChangeText}
-      keyboardType={keyboardType}
-      multiline={multiline}
-      autoCapitalize="none"
-      autoCorrect={false}
-      returnKeyType={returnKeyType ?? 'done'}
-      onSubmitEditing={onSubmitEditing}
-      blurOnSubmit={!multiline}
-    />
-  </View>
-));
+  ref?: React.Ref<TextInput>;
+};
 
-SField.displayName = 'SField';
+function SField({ icon, placeholder, value, onChangeText, keyboardType, multiline, palette, returnKeyType, onSubmitEditing, ref }: SFieldProps) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: multiline ? 'flex-start' : 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, minHeight: 52 }}>
+      <View style={{ marginTop: multiline ? 2 : 0 }}>
+        <Icon source={icon} size={20} color={palette.primary} />
+      </View>
+      <TextInput
+        ref={ref}
+        style={{ flex: 1, fontSize: 15, color: palette.text, paddingVertical: 0, minHeight: multiline ? 64 : 24, textAlignVertical: multiline ? 'top' : 'center' }}
+        placeholder={placeholder}
+        placeholderTextColor={palette.muted}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+        multiline={multiline}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType={returnKeyType ?? 'done'}
+        onSubmitEditing={onSubmitEditing}
+        blurOnSubmit={!multiline}
+      />
+    </View>
+  );
+}
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 function createStyles(palette: any) {

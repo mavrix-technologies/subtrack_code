@@ -50,7 +50,8 @@ export default function SplitFriendsListScreen() {
         <FlatList
           data={friends}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          contentInset={{ bottom: insets.bottom + 24 }}
+          scrollIndicatorInsets={{ bottom: insets.bottom + 24 }}
           renderItem={({ item }) => (
             <Pressable
               style={[styles.row, { backgroundColor: palette.surface, borderColor: palette.line }]}

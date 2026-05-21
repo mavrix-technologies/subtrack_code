@@ -1,6 +1,20 @@
 import { BillingCycle, Subscription } from '@/types/subscription';
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+const displayDateFormatter = new Intl.DateTimeFormat('en-IN', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
+const monthYearFormatter = new Intl.DateTimeFormat('en-IN', {
+  month: 'long',
+  year: 'numeric',
+});
+const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
 
 export function toIsoDate(date: Date) {
   const year = date.getFullYear();
@@ -34,18 +48,17 @@ export function isValidIsoDate(value: string) {
 export function formatDisplayDate(value: string) {
   const date = parseIsoDate(value);
   if (!date) return value;
-  return new Intl.DateTimeFormat('en-IN', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date);
+  return displayDateFormatter.format(date);
 }
 
 export function formatMonthYear(date: Date) {
-  return new Intl.DateTimeFormat('en-IN', {
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
+  return monthYearFormatter.format(date);
+}
+
+export function formatShortDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return shortDateFormatter.format(date);
 }
 
 export function daysBetween(start: Date, end: Date) {

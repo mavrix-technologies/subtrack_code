@@ -263,8 +263,9 @@ export default function EditExpenseScreen() {
         contentInsetAdjustmentBehavior="automatic"
         nestedScrollEnabled
         {...(Platform.OS === 'android' ? ({ overScrollMode: 'never' } as const) : {})}
+        contentInset={{ bottom: scrollPaddingBottom }}
+        scrollIndicatorInsets={{ bottom: scrollPaddingBottom }}
         contentContainerStyle={{
-          paddingBottom: scrollPaddingBottom,
           backgroundColor: palette.background,
         }}
       >
@@ -414,4 +415,3 @@ function createStyles(palette: any) {
     catCellDot: { position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: 4 },
   });
 }
-

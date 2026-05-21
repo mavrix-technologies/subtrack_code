@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useState, PropsWithChildren, useMemo, useEffect, useCallback } from 'react';
+import React, { createContext, use, useState, PropsWithChildren, useMemo, useEffect, useCallback } from 'react';
 import { Appearance } from 'react-native';
 import { lightPalette, darkPalette } from '@/constants/subtrack-theme';
 import { useAppData } from '@/contexts/app-data';
@@ -70,7 +70,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 }
 
 export function useTheme() {
-  const value = useContext(ThemeContext);
+  const value = use(ThemeContext);
   if (!value) {
     throw new Error('useTheme must be used within ThemeProvider');
   }

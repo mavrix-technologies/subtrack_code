@@ -131,23 +131,22 @@ export const legalPages = {
   },
   contact: {
     title: 'Contact Us',
-    subtitle: 'Support and app information',
+    subtitle: 'Support and publishing information',
     updatedAt: 'May 14, 2026',
     sections: [
       {
         title: 'Support',
         body: [
           `Email: ${supportEmail}`,
-          'When contacting support, include your app version, device model, Android or iOS version, and a short description of the issue.',
+          'When contacting support, include your device model, Android or iOS version, and a short description of the issue.',
         ],
       },
       {
-        title: 'App information',
+        title: 'Publishing information',
         body: [
           'App name: SubTrack',
           'Android package: com.subtrackapp.android',
           'iOS bundle identifier: com.subtrackapp.ios',
-          'Version: 1.1.0',
         ],
       },
       {

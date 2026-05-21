@@ -1,7 +1,8 @@
 import { getGoogleMobileAdsModule } from '@/components/ads/mobileAdsModule';
 import { useTheme } from '@/contexts/theme';
 import React, { useEffect, useState } from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { Icon } from 'react-native-paper';
 
 const ANDROID_NATIVE_AD_UNIT_ID = 'ca-app-pub-6003470714469240/4126655293';

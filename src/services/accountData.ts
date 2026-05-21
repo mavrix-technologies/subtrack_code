@@ -5,6 +5,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   writeBatch,
 } from 'firebase/firestore';
@@ -18,6 +19,7 @@ import {
   PREFERENCE_COLLECTION,
   SPLIT_FRIEND_COLLECTION,
   SUBSCRIPTION_COLLECTION,
+  appConfigDoc,
   userDoc,
 } from '@/services/firestorePaths';
 import type { AppUser } from '@/types/settings';
@@ -26,6 +28,7 @@ import { getCrashLogs } from '@/services/crashReporting';
 const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL?.trim() || 'support@subtrack.app';
 const PLAY_STORE_PACKAGE = 'com.subtrackapp.android';
 const APP_STORE_URL = 'https://apps.apple.com/app/subtrack';
+const DEFAULT_PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${PLAY_STORE_PACKAGE}`;
 
 const COLLECTIONS = [
   SUBSCRIPTION_COLLECTION,
@@ -161,14 +164,24 @@ export async function sendSupportRequest(user: AppUser | null) {
 }
 
 export async function openStoreReview() {
+  const firebase = getFirebaseBundle();
+  const remoteStoreUrl = firebase
+    ? await getDoc(appConfigDoc(firebase.db, 'updateAlert'))
+      .then((snapshot) => {
+        const value = snapshot.data()?.actionUrl;
+        return typeof value === 'string' && value.trim() ? value.trim() : '';
+      })
+      .catch(() => '')
+    : '';
+
   const url = Platform.select({
-    android: `market://details?id=${PLAY_STORE_PACKAGE}`,
+    android: remoteStoreUrl || `market://details?id=${PLAY_STORE_PACKAGE}`,
     ios: APP_STORE_URL,
     default: APP_STORE_URL,
   })!;
 
   const fallback = Platform.OS === 'android'
-    ? `https://play.google.com/store/apps/details?id=${PLAY_STORE_PACKAGE}`
+    ? remoteStoreUrl || DEFAULT_PLAY_STORE_URL
     : APP_STORE_URL;
 
   if (await Linking.canOpenURL(url)) {

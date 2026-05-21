@@ -88,7 +88,7 @@ function TabButton({
         minWidth: 0,
       }}
     >
-      <Animated.View style={[{ alignItems: 'center', gap: 3, minWidth: 0 }]}>
+      <Animated.View style={{ alignItems: 'center', gap: 3, minWidth: 0 }}>
         <Animated.View style={iconAnimStyle}>
           <Icon
             source={focused ? item.selectedIcon : item.icon}

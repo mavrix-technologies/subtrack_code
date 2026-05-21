@@ -14,6 +14,7 @@ import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { useSplitFriendStore } from '@/store/useSplitFriendStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
+import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
@@ -28,7 +29,6 @@ import {
     StyleSheet,
     Switch,
     Text,
-    TouchableOpacity,
     View
 } from 'react-native';
 import { Icon } from 'react-native-paper';
@@ -70,11 +70,12 @@ export default function SettingsScreen() {
   // Check support and load current setting
   useEffect(() => {
     (async () => {
-      const compatible = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      const [compatible, enrolled, stored] = await Promise.all([
+        LocalAuthentication.hasHardwareAsync(),
+        LocalAuthentication.isEnrolledAsync(),
+        AsyncStorage.getItem('biometric_lock_enabled'),
+      ]);
       setIsBiometricSupported(compatible && enrolled);
-
-      const stored = await AsyncStorage.getItem('biometric_lock_enabled');
       if (stored === 'true') {
         setBiometricEnabled(true);
       }
@@ -108,6 +109,7 @@ export default function SettingsScreen() {
   const testSub = upcomingRenewals[0] ?? subscriptions[0] ?? null;
   const isSyncing = status === 'booting' || loadingSubscriptions || expensesLoading || invoicesLoading || friendsLoading;
   const dataCounts = `${subscriptions.length} subs • ${expenses.length} expenses • ${invoices.length} invoices • ${friends.length} friends`;
+  const appVersion = Constants.nativeApplicationVersion || Constants.expoConfig?.version || 'Unknown';
 
   const openLegalPage = (page: 'privacy' | 'terms' | 'contact') => {
     Haptics.selectionAsync();
@@ -525,7 +527,7 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.listTextBlock}>
                 <Text style={styles.listText}>Rate SubTrack</Text>
-                <Text style={styles.listSubText} numberOfLines={1}>Open the app store listing</Text>
+                <Text style={styles.listSubText} numberOfLines={1}>Open the latest store listing</Text>
               </View>
             </View>
             <Icon source="chevron-right" size={16} color={palette.muted} />
@@ -583,11 +585,24 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.listTextBlock}>
                 <Text style={styles.listText}>Contact Us</Text>
-                <Text style={styles.listSubText} numberOfLines={1}>Support and app information</Text>
+                <Text style={styles.listSubText} numberOfLines={1}>Support and publishing information</Text>
               </View>
             </View>
             <Icon source="chevron-right" size={16} color={palette.muted} />
           </Pressable>
+
+          <View style={styles.listItem}>
+            <View style={styles.listItemLeft}>
+              <View style={styles.iconBox}>
+                <Icon source="cellphone-information" size={20} color={palette.muted} />
+              </View>
+              <View style={styles.listTextBlock}>
+                <Text style={styles.listText}>App version</Text>
+                <Text style={styles.listSubText} numberOfLines={1}>Installed on this device</Text>
+              </View>
+            </View>
+            <Text style={styles.listValue}>v{appVersion}</Text>
+          </View>
         </View>
 
         {/* Sign Out */}
@@ -616,13 +631,13 @@ export default function SettingsScreen() {
           <View style={[styles.pickerSheet, { paddingBottom: insets.bottom + 8 }]}>
             {/* Title row */}
             <View style={styles.pickerTitleRow}>
-              <TouchableOpacity onPress={dismissCurrencyPicker} style={styles.pickerBtn}>
+              <Pressable onPress={dismissCurrencyPicker} style={styles.pickerBtn}>
                 <Text style={[styles.pickerBtnText, { color: palette.muted }]}>Cancel</Text>
-              </TouchableOpacity>
+              </Pressable>
               <Text style={styles.pickerTitle}>Select Currency</Text>
-              <TouchableOpacity onPress={confirmCurrencyPicker} style={styles.pickerBtn}>
+              <Pressable onPress={confirmCurrencyPicker} style={styles.pickerBtn}>
                 <Text style={[styles.pickerBtnText, { color: palette.primary }]}>Done</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
             <Picker
               selectedValue={pendingCurrency.code}

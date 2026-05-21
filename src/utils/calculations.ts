@@ -31,7 +31,7 @@ export const getCategoryBreakdown = (subs: Subscription[]): { category: Subscrip
 };
 
 export const getUpcomingRenewals = (subs: Subscription[], currentDate = new Date()): Subscription[] => {
-  return [...subs].sort((a, b) => {
+  return subs.slice().sort((a, b) => {
     const aDate = new Date(getEffectiveNextBillingDate(a, currentDate));
     const bDate = new Date(getEffectiveNextBillingDate(b, currentDate));
     return aDate.getTime() - bDate.getTime();

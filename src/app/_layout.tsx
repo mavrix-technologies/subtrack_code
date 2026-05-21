@@ -1,5 +1,6 @@
 import { subtrackTheme } from '@/constants/subtrack-theme';
 import { getGoogleMobileAdsModule } from '@/components/ads/mobileAdsModule';
+import { StartupRewardedInterstitialAd } from '@/components/ads/StartupRewardedInterstitialAd';
 import { LegacyUpdateAlert } from '@/components/messaging/LegacyUpdateAlert';
 import { AppOnboarding } from '@/components/onboarding/AppOnboarding';
 import { AppDataProvider, useAppData } from '@/contexts/app-data';
@@ -46,6 +47,7 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
   const [isLockEnabled, setIsLockEnabled] = useState(false);
   const appState = useRef(AppState.currentState);
   const isAuthenticating = useRef(false);
+  const authResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const authenticate = async () => {
     if (isAuthenticating.current) return;
@@ -65,7 +67,11 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
       });
       if (auth.success) setUnlocked(true);
     } finally {
-      setTimeout(() => { isAuthenticating.current = false; }, 500);
+      if (authResetTimer.current) clearTimeout(authResetTimer.current);
+      authResetTimer.current = setTimeout(() => {
+        isAuthenticating.current = false;
+        authResetTimer.current = null;
+      }, 500);
     }
   };
 
@@ -75,7 +81,10 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
       if (appState.current === 'background' && nextAppState === 'active') authenticate();
       appState.current = nextAppState;
     });
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      if (authResetTimer.current) clearTimeout(authResetTimer.current);
+    };
   }, []);
 
   if (!unlocked && isLockEnabled) {
@@ -191,6 +200,7 @@ export default function RootLayout() {
                 <InvoiceBrandProvider>
                   <AppLockGate>
                     <AdsInitializer />
+                    <StartupRewardedInterstitialAd />
                     <AnalyticsInitializer />
                     <AuthGate />
                     <ThemedStack />

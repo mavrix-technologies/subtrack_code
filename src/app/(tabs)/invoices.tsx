@@ -1,15 +1,14 @@
 import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';
 import { Invoice, InvoiceStatus, getDueDaysLabel, useInvoiceStore } from '@/store/useInvoiceStore';
+import { formatShortDate } from '@/utils/dates';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const CHART_W = SCREEN_W;
 const CHART_H = 160;
 
 const STATUS_FILTERS = ['All', 'Unpaid', 'Paid', 'Overdue', 'Draft'] as const;
@@ -27,6 +26,7 @@ function useStatusCfg(palette: any) {
 function RevenueChart({ invoices, palette, activeIdx, onSelect }: {
   invoices: Invoice[]; palette: any; activeIdx: number; onSelect: (i: number) => void;
 }) {
+  const { width: chartWidth } = useWindowDimensions();
   const buckets = useMemo(() => {
     const now = new Date();
     return Array.from({ length: 6 }, (_, i) => {
@@ -47,7 +47,7 @@ function RevenueChart({ invoices, palette, activeIdx, onSelect }: {
   const n = buckets.length;
   // Inset the line so first/last points don't clip at screen edge
   const inset = 24;
-  const chartInnerW = CHART_W - inset * 2;
+  const chartInnerW = chartWidth - inset * 2;
 
   const pts = buckets.map((b, i) => ({
     x: inset + (i / (n - 1)) * chartInnerW,
@@ -64,15 +64,15 @@ function RevenueChart({ invoices, palette, activeIdx, onSelect }: {
   }, '');
 
   // Area closes to full width so gradient fills edge-to-edge
-  const areaPath = linePath + ` L${CHART_W},${graphH} L0,${graphH} Z`;
+  const areaPath = linePath + ` L${chartWidth},${graphH} L0,${graphH} Z`;
   const activePt = pts[activeIdx] ?? pts[n - 1];
   const pillW = 40;
   const pillH = 30;
   // Pills evenly spaced across full width
-  const pillSpacing = CHART_W / n;
+  const pillSpacing = chartWidth / n;
 
   return (
-    <Svg width={CHART_W} height={CHART_H}>
+    <Svg width={chartWidth} height={CHART_H}>
       <Defs>
         <LinearGradient id="g" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0%" stopColor={palette.primary} stopOpacity="0.28" />
@@ -90,7 +90,7 @@ function RevenueChart({ invoices, palette, activeIdx, onSelect }: {
         const isActive = i === activeIdx;
         const pillY = graphH + 7;
         return (
-          <React.Fragment key={i}>
+          <React.Fragment key={`revenue-${pt.label}`}>
             <Rect
               x={cx - pillW / 2} y={pillY}
               width={pillW} height={pillH} rx={pillH / 2}
@@ -142,7 +142,7 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
           <Text style={[cS.client, { color: palette.text }]} numberOfLines={1}>{invoice.clientName}</Text>
           <Text style={[cS.meta, { color: palette.muted }]} numberOfLines={1}>
             {invoice.invoiceNumber ? invoice.invoiceNumber + '  ·  ' : ''}
-            {new Date(invoice.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            {formatShortDate(invoice.date)}
           </Text>
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0, marginLeft: 8 }}>
@@ -257,7 +257,7 @@ export default function InvoicesScreen() {
               );
               return rows;
             }, []).map((row, i) => (
-              <View key={i} style={S.statRow}>{row}</View>
+              <View key={`stats-row-${row.map((child) => child.key).join('-')}`} style={S.statRow}>{row}</View>
             ))}
           </View>
         </View>

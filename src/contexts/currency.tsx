@@ -9,8 +9,8 @@ import {
 import React, {
     createContext,
     PropsWithChildren,
+    use,
     useCallback,
-    useContext,
     useEffect,
     useMemo,
     useState,
@@ -127,33 +127,33 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
   const formatAmount = useCallback(
     (value: number) => {
       try {
-        return new Intl.NumberFormat(currency.locale, {
+        return value.toLocaleString(currency.locale, {
           style: 'currency',
           currency: currency.code,
           maximumFractionDigits: 0,
-        }).format(value);
+        });
       } catch {
         return `${currency.symbol}${Math.round(value).toLocaleString()}`;
       }
     },
-    [currency]
+    [currency.code, currency.symbol]
   );
 
   const formatCompact = useCallback(
     (value: number) => {
       try {
         if (value < 100000) return formatAmount(value);
-        return new Intl.NumberFormat(currency.locale, {
+        return value.toLocaleString(currency.locale, {
           style: 'currency',
           currency: currency.code,
           notation: 'compact',
           maximumFractionDigits: 1,
-        }).format(value);
+        });
       } catch {
         return formatAmount(value);
       }
     },
-    [currency, formatAmount]
+    [currency.code, formatAmount]
   );
 
   const value = useMemo(
@@ -171,7 +171,7 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useCurrency() {
-  const ctx = useContext(CurrencyContext);
+  const ctx = use(CurrencyContext);
   if (!ctx) throw new Error('useCurrency must be used within CurrencyProvider');
   return ctx;
 }
@@ -283,7 +283,7 @@ export function InvoiceBrandProvider({ children }: PropsWithChildren) {
 }
 
 export function useInvoiceBrand() {
-  const ctx = useContext(InvoiceBrandContext);
+  const ctx = use(InvoiceBrandContext);
   if (!ctx) throw new Error('useInvoiceBrand must be used within InvoiceBrandProvider');
   return ctx;
 }

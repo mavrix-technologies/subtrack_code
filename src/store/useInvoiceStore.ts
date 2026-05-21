@@ -95,12 +95,10 @@ export function computeInvoiceTotals(
 }
 
 export function generateInvoiceNumber(existing: Invoice[]): string {
-  const nums = existing
-    .map((inv) => {
-      const m = inv.invoiceNumber?.match(/(\d+)$/);
-      return m ? parseInt(m[1], 10) : 0;
-    })
-    .filter(Boolean);
+  const nums = existing.flatMap((inv) => {
+    const m = inv.invoiceNumber?.match(/(\d+)$/);
+    return m ? [parseInt(m[1], 10)] : [];
+  });
   const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
   return `INV-${String(next).padStart(4, '0')}`;
 }

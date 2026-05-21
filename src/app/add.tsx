@@ -9,7 +9,8 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +26,15 @@ const PAYMENT_METHOD_OPTIONS = [
   'Cash',
   'Other',
 ];
+
+const appNameMatchers = POPULAR_APPS
+  .slice()
+  .sort((a, b) => b.name.length - a.name.length)
+  .map((app) => ({
+    app,
+    compactRegex: new RegExp(`\\b${app.name.toLowerCase().replace(/\s+/g, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'),
+    regex: new RegExp(`\\b${app.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'),
+  }));
 
 function getPaymentMethodIcon(method: string) {
   const lower = method.toLowerCase();
@@ -212,14 +222,10 @@ export default function AddScreen() {
 
       // --- EXTRACT APP NAME ---
       let matchedApp = null;
-      // Sort apps by length descending so longer names (YouTube Premium) match before shorter ones (YouTube)
-      const sortedApps = [...POPULAR_APPS].sort((a, b) => b.name.length - a.name.length);
-      
-      for (const app of sortedApps) {
+      for (const matcher of appNameMatchers) {
         // Use word boundary to avoid partial matches (e.g., matching "in" to LinkedIn)
-        const regex = new RegExp(`\\b${app.name}\\b`, 'i');
-        if (regex.test(cleanText) || lowercaseText.includes(app.name.toLowerCase().replace(' ', ''))) {
-          matchedApp = app;
+        if (matcher.regex.test(cleanText) || matcher.compactRegex.test(lowercaseText)) {
+          matchedApp = matcher.app;
           break;
         }
       }
@@ -586,10 +592,11 @@ export default function AddScreen() {
                 </View>
               )}
 
-              {POPULAR_APPS.filter(app => app.name.toLowerCase().includes(searchQuery.toLowerCase())).map(app => {
+              {POPULAR_APPS.reduce<React.ReactElement[]>((matches, app) => {
+                if (!app.name.toLowerCase().includes(searchQuery.toLowerCase())) return matches;
                 const bgColor = app.icon.hex === '000000' || app.icon.hex === '111111' ? '#1A202C' : `#${app.icon.hex}`;
                 const isSelected = selectedAppId === app.id;
-                return (
+                matches.push(
                   <Pressable
                     key={app.id}
                     style={({ pressed }) => [styles.appGridItem, pressed && { opacity: 0.75 }]}
@@ -610,7 +617,8 @@ export default function AddScreen() {
                     <Text style={[styles.appName, isSelected && { color: palette.primary, fontWeight: '700' }]} numberOfLines={1}>{app.name}</Text>
                   </Pressable>
                 );
-              })}
+                return matches;
+              }, [])}
             </ScrollView>
           </View>
         </View>

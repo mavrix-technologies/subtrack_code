@@ -74,7 +74,9 @@ export default function CreateSplitFriendScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}
+        contentInset={{ bottom: insets.bottom + 32 }}
+        scrollIndicatorInsets={{ bottom: insets.bottom + 32 }}
+        contentContainerStyle={{ padding: 16 }}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={[styles.label, { color: palette.muted }]}>Display name</Text>

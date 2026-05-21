@@ -227,14 +227,18 @@ function buildIndividualReminder(
 
 /** Sends one personalized reminder email per non-owner participant who has an email (no shared To: list). */
 export async function sendSplitExpenseReminderEmail(params: ReminderParams): Promise<SendReminderResult> {
-  const targets = params.participants
-    .slice(1)
-    .map((p, sliceIdx) => ({
-      participant: p,
-      personOrdinal: sliceIdx + 2,
-      email: (p.email || '').trim(),
-    }))
-    .filter((t) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t.email));
+  const targets = params.participants.reduce<{
+    participant: SplitParticipant;
+    personOrdinal: number;
+    email: string;
+  }[]>((acc, p, index) => {
+    if (index === 0) return acc;
+    const email = (p.email || '').trim();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      acc.push({ participant: p, personOrdinal: index + 1, email });
+    }
+    return acc;
+  }, []);
 
   if (targets.length === 0) return 'skipped';
 

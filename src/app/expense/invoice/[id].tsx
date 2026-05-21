@@ -3,6 +3,7 @@ import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';
 import { createInvoice } from '@/services/invoiceService';
 import { useExpenseStore } from '@/store/useExpenseStore';
+import { formatShortDate } from '@/utils/dates';
 import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -224,7 +225,7 @@ export default function GenerateInvoiceScreen() {
             <View style={styles.metaBlock}>
               <Text style={[styles.metaLabel, { color: palette.muted }]}>Date</Text>
               <Text style={[styles.metaValue, { color: palette.text }]}>
-                {new Date(expense.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                {formatShortDate(expense.date)}
               </Text>
             </View>
             <View style={styles.metaBlock}>
@@ -242,7 +243,7 @@ export default function GenerateInvoiceScreen() {
             <View style={[styles.divider, { backgroundColor: palette.line }]} />
 
             {items.map((item, i) => (
-              <View key={i}>
+              <View key={`${item.name}-${item.price}`}>
                 <View style={styles.itemRow}>
                   <Text style={[styles.itemName, { color: palette.text, flex: 1 }]} numberOfLines={2}>
                     {item.name}

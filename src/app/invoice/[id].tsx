@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/theme';
 import { deleteInvoice, recordPayment, updateInvoice } from '@/services/invoiceService';
 import { sendInvoiceShareEmail } from '@/services/invoiceShareEmail';
 import { getDueDaysLabel, InvoiceStatus, useInvoiceStore } from '@/store/useInvoiceStore';
+import { formatShortDate } from '@/utils/dates';
 import { generateInvoiceHtml, InvoiceData, TEMPLATES } from '@/utils/invoiceTemplates';
 import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import * as Clipboard from 'expo-clipboard';
@@ -16,7 +17,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Alert, Dimensions,
+    ActivityIndicator, Alert,
     InteractionManager,
     Keyboard,
     KeyboardAvoidingView,
@@ -24,20 +25,20 @@ import {
     Modal,
     Platform,
     Pressable,
-    Image as RNImage,
     ScrollView,
     Share,
     StatusBar,
     StyleSheet, Text, TextInput,
+    useWindowDimensions,
     View
 } from 'react-native';
+import { Image as RNImage } from 'expo-image';
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path as SvgPath, SvgXml } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 import { WebView } from 'react-native-webview';
 
-const { width: SW } = Dimensions.get('window');
 type ExportFile = {
   uri: string;
   fileName: string;
@@ -70,14 +71,16 @@ async function saveDocumentWithNativePicker(file: ExportFile) {
     const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
     if (!permissions.granted) return false;
 
-    const targetUri = await FileSystem.StorageAccessFramework.createFileAsync(
-      permissions.directoryUri,
-      file.fileName,
-      file.mimeType
-    );
-    const base64 = await FileSystem.readAsStringAsync(file.uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    const [targetUri, base64] = await Promise.all([
+      FileSystem.StorageAccessFramework.createFileAsync(
+        permissions.directoryUri,
+        file.fileName,
+        file.mimeType
+      ),
+      FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      }),
+    ]);
     await FileSystem.writeAsStringAsync(targetUri, base64, {
       encoding: FileSystem.EncodingType.Base64,
     });
@@ -211,7 +214,8 @@ function getInvoicePreviewHtml(html: string) {
 
 // ── Torn edge ─────────────────────────────────────────────────────────────────
 function TornEdge({ palette, flip }: { palette: any; flip: boolean }) {
-  const h = 16; const w = SW - 32; const teeth = 14; const step = w / teeth;
+  const { width } = useWindowDimensions();
+  const h = 16; const w = width - 32; const teeth = 14; const step = w / teeth;
   let d = 'M0,' + (flip ? 0 : h);
   for (let i = 0; i < teeth; i++) {
     const x1 = i * step + step * 0.3, x2 = i * step + step * 0.7, x3 = (i + 1) * step;
@@ -228,7 +232,7 @@ function DashedLine({ palette }: { palette: any }) {
   return (
     <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center' }}>
       {Array.from({ length: 26 }).map((_, i) => (
-        <View key={i} style={{ flex: 1, height: 1, backgroundColor: i % 2 === 0 ? palette.border : 'transparent' }} />
+        <View key={`dash-${i % 2}-${Math.floor(i / 2)}`} style={{ flex: 1, height: 1, backgroundColor: i % 2 === 0 ? palette.border : 'transparent' }} />
       ))}
     </View>
   );
@@ -423,13 +427,13 @@ export default function InvoiceDetailScreen() {
               <View style={[S.billCol, { alignItems: 'flex-end' }]}>
                 <Text style={[S.fieldLabel, { color: palette.muted }]}>Issue Date</Text>
                 <Text style={[S.fieldValue, { color: palette.text }]}>
-                  {new Date(invoice.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {formatShortDate(invoice.date)}
                 </Text>
                 {invoice.dueDate ? (
                   <>
                     <Text style={[S.fieldLabel, { color: palette.muted, marginTop: 10 }]}>Due Date</Text>
                     <Text style={[S.fieldValue, { color: due.overdue ? palette.danger : due.urgent ? palette.warning : palette.text }]}>
-                      {new Date(invoice.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {formatShortDate(invoice.dueDate)}
                     </Text>
                   </>
                 ) : null}
@@ -446,7 +450,7 @@ export default function InvoiceDetailScreen() {
                 <Text style={[S.colHead, { color: palette.muted, width: 80, textAlign: 'right' }]}>Amount</Text>
               </View>
               {invoice.items.map((item: any, i: number) => (
-                <View key={i} style={S.itemRow}>
+                <View key={`${item.name}-${item.description || ''}-${item.price}-${item.qty}`} style={S.itemRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={[S.itemName, { color: palette.text }]}>{item.name}</Text>
                     {item.description ? <Text style={[S.itemDesc, { color: palette.muted }]}>{item.description}</Text> : null}
@@ -507,7 +511,7 @@ export default function InvoiceDetailScreen() {
                       <View style={{ flex: 1 }}>
                         <Text style={[S.itemName, { color: palette.text }]}>{pay.method}</Text>
                         <Text style={[S.itemDesc, { color: palette.muted }]}>
-                          {new Date(pay.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {formatShortDate(pay.date)}
                           {pay.note ? '  ·  ' + pay.note : ''}
                         </Text>
                       </View>
@@ -583,7 +587,7 @@ export default function InvoiceDetailScreen() {
             </View>
             <View style={S.quickFillRow}>
               {[balanceDue, balanceDue / 2, balanceDue / 4].map((amt, i) => (
-                <Pressable key={i} style={[S.quickFillBtn, { borderColor: palette.border }]} onPress={() => setPayAmount(amt.toFixed(2))}>
+                <Pressable key={`quick-fill-${amt.toFixed(2)}`} style={[S.quickFillBtn, { borderColor: palette.border }]} onPress={() => setPayAmount(amt.toFixed(2))}>
                   <Text style={[S.quickFillText, { color: palette.text }]}>{i === 0 ? 'Full' : i === 1 ? '½' : '¼'}</Text>
                   <Text style={[S.quickFillAmt, { color: palette.muted }]}>{currency.symbol}{amt.toFixed(2)}</Text>
                 </Pressable>
@@ -618,6 +622,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
   onClose: () => void;
   brand: InvoiceBrand;
 }) {
+  const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const sym = currency.symbol;
   const scrollRef = useRef<ScrollView>(null);
@@ -631,11 +636,11 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
   // Local editable brand state (saved on confirm)
   const { saveBrand } = useInvoiceBrand();
-  const [editName, setEditName]   = useState(brand.businessName);
-  const [editTag, setEditTag]     = useState(brand.tagline);
-  const [editPrefix, setEditPrefix] = useState(brand.filePrefix);
-  const [editLogo, setEditLogo]   = useState(brand.logoUri);
-  const [editSig, setEditSig]     = useState(brand.signatureUri);
+  const [editName, setEditName]   = useState('');
+  const [editTag, setEditTag]     = useState('');
+  const [editPrefix, setEditPrefix] = useState('');
+  const [editLogo, setEditLogo]   = useState('');
+  const [editSig, setEditSig]     = useState('');
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [sigLabel, setSigLabel] = useState(brand.signatureLabel || 'Authorized Signature');
 
@@ -657,10 +662,13 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
       setTimeout(() => setShowSignaturePad(true), 350);
       return;
     }
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow photo library access to pick an image.');
-      return;
+    // Android uses the system photo picker for one-off image selection without broad media access.
+    if (Platform.OS !== 'android') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow photo library access to pick an image.');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -865,7 +873,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
   const handleScroll = (event: any) => {
     const x = event.nativeEvent.contentOffset.x;
-    const index = Math.round(x / SW);
+    const index = Math.round(x / screenWidth);
     if (index >= 0 && index < TEMPLATES.length) {
       if (TEMPLATES[index].id !== templateId) {
         onSelectTemplate(TEMPLATES[index].id);
@@ -884,7 +892,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
     setIsGridMode(false);
     setTimeout(() => {
       const idx = TEMPLATES.findIndex(t => t.id === id);
-      scrollRef.current?.scrollTo({ x: idx * SW, animated: false });
+      scrollRef.current?.scrollTo({ x: idx * screenWidth, animated: false });
     }, 50);
   };
 
@@ -906,7 +914,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
           <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '800', color: previewText, textTransform: 'capitalize', letterSpacing: 0 }}>
             {isGridMode ? 'Select Template' : currentTemplate.name}
           </Text>
-          <Text style={{ fontSize: 11, fontWeight: '600', color: previewMuted, textTransform: 'uppercase', letterSpacing: 0, marginTop: 2 }}>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: previewMuted, textTransform: 'uppercase', letterSpacing: 0, marginTop: 2 }}>
             {isGridMode ? 'All Layouts' : 'Template'}
           </Text>
         </View>
@@ -933,11 +941,11 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScroll}
-          contentOffset={{ x: initialIndex * SW, y: 0 }}
+          contentOffset={{ x: initialIndex * screenWidth, y: 0 }}
           style={{ flex: 1 }}
         >
           {TEMPLATES.map(t => (
-            <View key={t.id} style={{ width: SW, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 16 }}>
+            <View key={t.id} style={{ width: screenWidth, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 16 }}>
               {t.id === templateId ? (
                 <View
                   ref={activeWebViewRef}
@@ -1093,7 +1101,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
                 <Text style={{ fontSize: 13, color: previewMuted, marginTop: 8, lineHeight: 18 }}>
                   Opens your mail app with the invoice summary filled in.
                 </Text>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: previewMuted, marginTop: 16, letterSpacing: 0, textTransform: 'uppercase' }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: previewMuted, marginTop: 16, letterSpacing: 0, textTransform: 'uppercase' }}>
                   Recipient email
                 </Text>
                 <TextInput
@@ -1193,7 +1201,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
                   <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: isActive ? palette.primary : previewText, textAlign: 'center', marginTop: 8 }}>
                     {t.name}
                   </Text>
-                  <Text numberOfLines={1} style={{ fontSize: 11, color: previewMuted, textAlign: 'center', marginTop: 2 }}>
+                  <Text numberOfLines={1} style={{ fontSize: 12, color: previewMuted, textAlign: 'center', marginTop: 2 }}>
                     {t.description}
                   </Text>
                 </View>
@@ -1231,7 +1239,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
             {/* Business Name */}
             <View>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Business Name</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Business Name</Text>
               <TextInput
                 value={editName}
                 onChangeText={setEditName}
@@ -1243,7 +1251,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
             {/* Tagline */}
             <View>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Tagline / Subtitle</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Tagline / Subtitle</Text>
               <TextInput
                 value={editTag}
                 onChangeText={setEditTag}
@@ -1255,7 +1263,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
             {/* File Name Prefix */}
             <View>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Export File Name Prefix</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Export File Name Prefix</Text>
               <Text style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>Files will be named: <Text style={{ fontWeight: '700', color: '#374151' }}>{(editPrefix || 'invoice').replace(/[^a-zA-Z0-9_-]/g, '_')}_INV-001.pdf</Text></Text>
               <TextInput
                 value={editPrefix}
@@ -1269,7 +1277,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
             {/* Logo */}
             <View>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Company Logo</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Company Logo</Text>
               <Pressable
                 onPress={() => pickImage('logo')}
                 style={{ backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderColor: editLogo ? '#4f46e5' : '#e5e7eb', borderStyle: editLogo ? 'solid' : 'dashed', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', minHeight: 100 }}
@@ -1296,7 +1304,7 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
             {/* Signature */}
             <View>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Authorised Signature</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Authorised Signature</Text>
               <Pressable
                 onPress={() => pickImage('signature')}
                 style={{ backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderColor: editSig ? '#4f46e5' : '#e5e7eb', borderStyle: editSig ? 'solid' : 'dashed', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', minHeight: 100 }}
@@ -1363,9 +1371,9 @@ const pvS = StyleSheet.create({
   toolbarIcon:        { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
   toolbarClose:       { padding: 8, backgroundColor: '#e5e7eb', borderRadius: 20 },
   exportBtn:          { padding: 8, borderRadius: 20, width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  previewPage:        { width: '100%', aspectRatio: 210 / 297, borderRadius: 8, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, elevation: 3 },
-  templateCard:       { aspectRatio: 210 / 297, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', elevation: 2 },
-  floatingButton:     { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center', elevation: 6 },
+  previewPage:        { width: '100%', aspectRatio: 210 / 297, borderRadius: 8, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, boxShadow: '0 2px 8px rgba(0,0,0,0.10)' },
+  templateCard:       { aspectRatio: 210 / 297, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' },
+  floatingButton:     { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(0,0,0,0.18)' },
 });
 
 // ── Main screen styles ────────────────────────────────────────────────────────

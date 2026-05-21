@@ -230,8 +230,9 @@ export default function AddExpenseScreen() {
         contentInsetAdjustmentBehavior="automatic"
         nestedScrollEnabled
         {...(Platform.OS === 'android' ? ({ overScrollMode: 'never' } as const) : {})}
+        contentInset={{ bottom: scrollPaddingBottom }}
+        scrollIndicatorInsets={{ bottom: scrollPaddingBottom }}
         contentContainerStyle={{
-          paddingBottom: scrollPaddingBottom,
           backgroundColor: palette.background,
         }}
         >
@@ -248,7 +249,6 @@ export default function AddExpenseScreen() {
               placeholder="0.00"
               placeholderTextColor="rgba(255,255,255,0.4)"
               selectionColor="#fff"
-              autoFocus
             />
           </View>
           <Text style={styles.amountDate}>
