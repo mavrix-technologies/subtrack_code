@@ -1,5 +1,6 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Subscription } from '@/types/subscription';
+import { Reminder, ReminderDraft } from '@/types/reminder';
 import { getEffectiveNextBillingDate, parseIsoDate, formatDisplayDate } from '@/utils/dates';
 
 // ── Expo Go detection ─────────────────────────────────────────────────────────
@@ -19,8 +20,9 @@ function formatPrice(sub: Subscription): string {
 
 // ── Channel IDs ───────────────────────────────────────────────────────────────
 
-export const CHANNEL_RENEWAL = 'renewal-reminders';
-export const CHANNEL_TEST    = 'test-alerts';
+const CHANNEL_RENEWAL = 'renewal-reminders';
+const CHANNEL_TEST    = 'test-alerts';
+const CHANNEL_AI_REMINDER = 'ai-reminders';
 
 // ── Singleton initialiser ─────────────────────────────────────────────────────
 
@@ -63,6 +65,18 @@ async function getNotifications() {
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         bypassDnd:            false,
         showBadge:            false,
+      });
+
+      await Notifications.setNotificationChannelAsync(CHANNEL_AI_REMINDER, {
+        name:                 'AI Reminders',
+        description:          'Smart reminders created by the AI assistant',
+        importance:           Notifications.AndroidImportance.HIGH,
+        sound:                'default',
+        vibrationPattern:     [0, 180, 120, 180],
+        lightColor:           '#F97316',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd:            false,
+        showBadge:            true,
       });
     }
 
@@ -207,4 +221,46 @@ export async function sendTestNotification(sub: Subscription): Promise<void> {
     },
     trigger: makeIntervalTrigger(N, 2, CHANNEL_TEST),
   });
+}
+
+export async function scheduleReminderNotifications(
+  reminder: Pick<Reminder, 'id'> & ReminderDraft
+): Promise<string[]> {
+  const [N, granted] = await Promise.all([
+    getNotifications(),
+    requestNotificationPermission(),
+  ]);
+  if (!granted || !reminder.datetime) return [];
+
+  const eventDate = new Date(reminder.datetime);
+  if (Number.isNaN(eventDate.getTime())) return [];
+
+  const leads = reminder.smartReminders.length > 0
+    ? reminder.smartReminders
+    : [{ label: 'Reminder', minutesBefore: 0 }];
+
+  const notificationIds: string[] = [];
+
+  for (const lead of leads) {
+    const triggerDate = new Date(eventDate);
+    triggerDate.setMinutes(triggerDate.getMinutes() - Math.max(0, lead.minutesBefore));
+    if (triggerDate <= new Date()) continue;
+
+    const id = await N.scheduleNotificationAsync({
+      content: {
+        title: lead.minutesBefore > 0 ? `${reminder.title} soon` : reminder.title,
+        body: reminder.location
+          ? `${lead.label} • ${reminder.location}`
+          : lead.label,
+        data: { reminderId: reminder.id, type: 'ai_reminder', category: reminder.category },
+        sound: true,
+        badge: 1,
+      },
+      trigger: makeDateTrigger(N, triggerDate, CHANNEL_AI_REMINDER),
+    });
+
+    notificationIds.push(id);
+  }
+
+  return notificationIds;
 }

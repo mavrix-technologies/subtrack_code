@@ -13,6 +13,8 @@ import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function GenerateInvoiceScreen() {
+  "use no memo";
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
@@ -150,9 +152,9 @@ export default function GenerateInvoiceScreen() {
       const html = generateHtml();
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      setExporting(false);
     } catch {
       Alert.alert('Error', 'Failed to generate PDF.');
-    } finally {
       setExporting(false);
     }
   };
@@ -162,7 +164,7 @@ export default function GenerateInvoiceScreen() {
     try {
       setSaving(true);
       const invoiceId = await createInvoice(user.uid, {
-        invoiceNumber: `INV-${Date.now().toString().slice(-4)}`,
+        invoiceNumber: `INV-${new Date().getTime().toString().slice(-4)}`,
         clientName: 'Split Group',
         items,
         subtotal: expense.amount,

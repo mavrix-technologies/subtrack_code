@@ -16,6 +16,7 @@ import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useMemo, useRef, useState } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
     ActivityIndicator, Alert,
     InteractionManager,
@@ -38,6 +39,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path as SvgPath, SvgXml } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 import { WebView } from 'react-native-webview';
+
+const SheetInput = ({ ref, ...props }: any) => {
+  if (Platform.OS === 'web') {
+    return <TextInput ref={ref} {...props} />;
+  }
+  return <BottomSheetTextInput ref={ref} {...props} />;
+};
+
+SheetInput.displayName = 'SheetInput';
 
 type ExportFile = {
   uri: string;
@@ -254,6 +264,8 @@ const PAYMENT_METHODS = ['Bank Transfer', 'Cash', 'UPI', 'Card', 'Cheque', 'Othe
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function InvoiceDetailScreen() {
+  "use no memo";
+
   const { id }        = useLocalSearchParams<{ id: string }>();
   const { palette }   = useTheme();
   const insets        = useSafeAreaInsets();
@@ -274,6 +286,17 @@ export default function InvoiceDetailScreen() {
   const [payMethod, setPayMethod]       = useState('Bank Transfer');
   const [payNote, setPayNote]           = useState('');
   const [recordingPay, setRecordingPay] = useState(false);
+
+  // Edit Details State
+  const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
+  const editSheetRef                    = useRef<BottomSheet>(null);
+  const [editInvNum, setEditInvNum]     = useState('');
+  const [editDateObject, setEditDateObject] = useState<Date>(new Date());
+  const [editDueDateObject, setEditDueDateObject] = useState<Date | undefined>(undefined);
+  const defaultFallbackDate = useMemo(() => new Date(), []);
+  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
+  const [showEditDuePicker, setShowEditDuePicker] = useState(false);
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
 
   const invoice = invoices.find((inv: any) => inv.id === id);
 
@@ -320,8 +343,8 @@ export default function InvoiceDetailScreen() {
       setToggling(true);
       await updateInvoice(invoice.userId, invoice.id, { status: cfg.next });
       updateStore(invoice.id, { status: cfg.next });
-    } catch { Alert.alert('Error', 'Could not update status.'); }
-    finally { setToggling(false); }
+      setToggling(false);
+    } catch { Alert.alert('Error', 'Could not update status.'); setToggling(false); }
   };
 
   const handleDelete = () => {
@@ -344,7 +367,8 @@ export default function InvoiceDetailScreen() {
     if (amt > balanceDue + 0.01) { Alert.alert('Too much', `Balance due is only ${currency.symbol}${balanceDue.toFixed(2)}`); return; }
     try {
       setRecordingPay(true);
-      const payment: any = { id: Date.now().toString(), amount: amt, date: new Date().toISOString(), method: payMethod };
+      const paymentDate = new Date();
+      const payment: any = { id: paymentDate.getTime().toString(), amount: amt, date: paymentDate.toISOString(), method: payMethod };
       if (payNote.trim()) payment.note = payNote.trim();
       const newPaid    = amountPaid + amt;
       const newBalance = Math.max(0, invoice.total - newPaid);
@@ -352,8 +376,50 @@ export default function InvoiceDetailScreen() {
       await recordPayment(invoice.userId, invoice.id, payment, newPaid, newBalance, newStatus);
       updateStore(invoice.id, { payments: [...payments, payment], amountPaid: newPaid, balanceDue: newBalance, status: newStatus });
       setShowPayModal(false); setPayAmount(''); setPayNote('');
-    } catch { Alert.alert('Error', 'Could not record payment.'); }
-    finally { setRecordingPay(false); }
+      setRecordingPay(false);
+    } catch { Alert.alert('Error', 'Could not record payment.'); setRecordingPay(false); }
+  };
+
+  const handleSaveDetails = async () => {
+    try {
+      setIsSavingDetails(true);
+      const updates: any = {
+        invoiceNumber: editInvNum.trim(),
+        date: editDateObject.toISOString(),
+      };
+      
+      if (editDueDateObject) {
+        updates.dueDate = editDueDateObject.toISOString();
+      } else {
+        updates.dueDate = null;
+      }
+      
+      if (invoice.userId) {
+        try {
+          await updateInvoice(invoice.userId, invoice.id, updates);
+        } catch (uploadError) {
+          console.warn('Firebase update failed, applying locally:', uploadError);
+        }
+      } else {
+        console.warn('No userId on invoice, skipping Firebase update');
+      }
+      
+      updateStore(invoice.id, updates);
+      setShowEditDetailsModal(false);
+      setIsSavingDetails(false);
+    } catch (e) {
+      console.warn('Update invoice error:', e);
+      Alert.alert('Error', 'Could not update details.');
+      setIsSavingDetails(false);
+    }
+  };
+
+  const openEditDetails = () => {
+    setEditInvNum(invoice.invoiceNumber || '');
+    setEditDateObject(invoice.date ? new Date(invoice.date) : new Date());
+    setEditDueDateObject(invoice.dueDate ? new Date(invoice.dueDate) : undefined);
+    setShowEditDetailsModal(true);
+    setTimeout(() => editSheetRef.current?.expand(), 50);
   };
 
   return (
@@ -379,7 +445,12 @@ export default function InvoiceDetailScreen() {
             <View style={S.paperHeader}>
               <Text style={[S.brandName, { color: palette.primary }]}>SubTrack</Text>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[S.invLabel, { color: palette.muted }]}>INVOICE</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[S.invLabel, { color: palette.muted }]}>INVOICE</Text>
+                  <Pressable onPress={openEditDetails}>
+                    <Icon source="pencil-outline" size={12} color={palette.primary} />
+                  </Pressable>
+                </View>
                 <Text style={[S.invNum, { color: palette.text }]}>
                   {invoice.invoiceNumber || '#' + invoice.id.slice(0, 8).toUpperCase()}
                 </Text>
@@ -425,7 +496,12 @@ export default function InvoiceDetailScreen() {
                 {invoice.clientAddress ? <Text style={[S.fieldSub, { color: palette.muted }]}>{invoice.clientAddress}</Text> : null}
               </View>
               <View style={[S.billCol, { alignItems: 'flex-end' }]}>
-                <Text style={[S.fieldLabel, { color: palette.muted }]}>Issue Date</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <Text style={[S.fieldLabel, { color: palette.muted, marginBottom: 0 }]}>Issue Date</Text>
+                  <Pressable onPress={openEditDetails}>
+                    <Icon source="pencil-outline" size={12} color={palette.primary} />
+                  </Pressable>
+                </View>
                 <Text style={[S.fieldValue, { color: palette.text }]}>
                   {formatShortDate(invoice.date)}
                 </Text>
@@ -453,7 +529,13 @@ export default function InvoiceDetailScreen() {
                 <View key={`${item.name}-${item.description || ''}-${item.price}-${item.qty}`} style={S.itemRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={[S.itemName, { color: palette.text }]}>{item.name}</Text>
-                    {item.description ? <Text style={[S.itemDesc, { color: palette.muted }]}>{item.description}</Text> : null}
+                    {item.mrp !== undefined && item.mrp > item.price ? (
+                      <Text style={[S.itemDesc, { color: palette.success, fontSize: 11, fontWeight: '600' }]}>
+                        MRP: {currency.symbol}{item.mrp.toFixed(2)} (Save {currency.symbol}{((item.mrp - item.price) * item.qty).toFixed(2)})
+                      </Text>
+                    ) : item.description ? (
+                      <Text style={[S.itemDesc, { color: palette.muted }]}>{item.description}</Text>
+                    ) : null}
                   </View>
                   <Text style={[S.itemQty, { color: palette.muted }]}>×{item.qty}</Text>
                   <Text style={[S.itemAmt, { color: palette.text }]}>{currency.symbol}{(item.price * item.qty).toFixed(2)}</Text>
@@ -469,10 +551,38 @@ export default function InvoiceDetailScreen() {
                 <View style={S.totalRow}><Text style={[S.totalLbl, { color: palette.muted }]}>Subtotal</Text><Text style={[S.totalVal, { color: palette.text }]}>{currency.symbol}{subtotal.toFixed(2)}</Text></View>
               )}
               {discountAmount > 0 && (
-                <View style={S.totalRow}><Text style={[S.totalLbl, { color: palette.muted }]}>Discount</Text><Text style={[S.totalVal, { color: palette.success }]}>-{currency.symbol}{discountAmount.toFixed(2)}</Text></View>
+                <View style={S.totalRow}><Text style={[S.totalLbl, { color: palette.muted }]}>Discount</Text><Text style={[S.totalVal, { color: palette.danger }]}>-{currency.symbol}{discountAmount.toFixed(2)}</Text></View>
+              )}
+              {(discountAmount > 0 || taxAmount > 0) && (
+                <View style={S.totalRow}>
+                  <Text style={[S.totalLbl, { color: palette.muted }]}>Taxable Amount</Text>
+                  <Text style={[S.totalVal, { color: palette.text }]}>
+                    {currency.symbol}{Math.max(0, subtotal - discountAmount).toFixed(2)}
+                  </Text>
+                </View>
               )}
               {taxAmount > 0 && (
-                <View style={S.totalRow}><Text style={[S.totalLbl, { color: palette.muted }]}>Tax ({taxRate}%)</Text><Text style={[S.totalVal, { color: palette.text }]}>{currency.symbol}{taxAmount.toFixed(2)}</Text></View>
+                <>
+                  {invoice.taxType === 'cgst_sgst' ? (
+                    <>
+                      <View style={S.totalRow}>
+                        <Text style={[S.totalLbl, { color: palette.muted, paddingLeft: 12 }]}>- CGST ({(taxRate / 2).toFixed(2)}%)</Text>
+                        <Text style={[S.totalVal, { color: palette.muted }]}>{currency.symbol}{(taxAmount / 2).toFixed(2)}</Text>
+                      </View>
+                      <View style={S.totalRow}>
+                        <Text style={[S.totalLbl, { color: palette.muted, paddingLeft: 12 }]}>- SGST ({(taxRate / 2).toFixed(2)}%)</Text>
+                        <Text style={[S.totalVal, { color: palette.muted }]}>{currency.symbol}{(taxAmount / 2).toFixed(2)}</Text>
+                      </View>
+                    </>
+                  ) : (
+                    <View style={S.totalRow}>
+                      <Text style={[S.totalLbl, { color: palette.muted }]}>
+                        {invoice.taxType === 'igst' ? 'IGST' : invoice.taxType === 'vat' ? 'VAT' : 'Tax'} ({taxRate}%)
+                      </Text>
+                      <Text style={[S.totalVal, { color: palette.text }]}>{currency.symbol}{taxAmount.toFixed(2)}</Text>
+                    </View>
+                  )}
+                </>
               )}
               <View style={[S.totalRow, S.grandRow]}>
                 <Text style={[S.grandLbl, { color: palette.text }]}>Total</Text>
@@ -544,6 +654,21 @@ export default function InvoiceDetailScreen() {
               </Pressable>
             )}
           </View>
+
+          {/* Scanned Receipt Attachment */}
+          {invoice.imageUrl && (
+            <View style={[S.attachmentCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+              <View style={S.attachmentHeader}>
+                <Icon source="paperclip" size={18} color={palette.muted} />
+                <Text style={[S.attachmentTitle, { color: palette.text }]}>Scanned Receipt Attachment</Text>
+              </View>
+              <RNImage
+                source={{ uri: invoice.imageUrl }}
+                style={S.attachmentImage}
+                contentFit="contain"
+              />
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -583,7 +708,7 @@ export default function InvoiceDetailScreen() {
             <Text style={[S.sheetLabel, { color: palette.muted }]}>AMOUNT</Text>
             <View style={[S.sheetAmtRow, { borderColor: palette.border }]}>
               <Text style={[S.sheetCurrency, { color: palette.muted }]}>{currency.symbol}</Text>
-              <BottomSheetTextInput style={[S.sheetAmtInput, { color: palette.text }]} value={payAmount} onChangeText={setPayAmount} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={palette.muted} />
+              <SheetInput style={[S.sheetAmtInput, { color: palette.text }]} value={payAmount} onChangeText={setPayAmount} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={palette.muted} />
             </View>
             <View style={S.quickFillRow}>
               {[balanceDue, balanceDue / 2, balanceDue / 4].map((amt, i) => (
@@ -603,11 +728,101 @@ export default function InvoiceDetailScreen() {
             </View>
             <Text style={[S.sheetLabel, { color: palette.muted }]}>NOTE (optional)</Text>
             <View style={[S.sheetNoteBox, { borderColor: palette.border }]}>
-              <BottomSheetTextInput style={[S.sheetNoteInput, { color: palette.text }]} value={payNote} onChangeText={setPayNote} placeholder="Add a note..." placeholderTextColor={palette.muted} />
+              <SheetInput style={[S.sheetNoteInput, { color: palette.text }]} value={payNote} onChangeText={setPayNote} placeholder="Add a note..." placeholderTextColor={palette.muted} />
             </View>
             <Pressable style={[S.sheetSaveBtn, { backgroundColor: palette.primary }]} onPress={handleRecordPayment} disabled={recordingPay}>
               {recordingPay ? <ActivityIndicator color="#fff" /> : <Text style={S.sheetSaveTxt}>Save Payment</Text>}
             </Pressable>
+          </BottomSheetScrollView>
+        </BottomSheet>
+      )}
+
+      {/* Edit Details Bottom Sheet */}
+      {showEditDetailsModal && (
+        <BottomSheet ref={editSheetRef} snapPoints={['65%', '85%']} onClose={() => setShowEditDetailsModal(false)}
+          backgroundStyle={{ backgroundColor: palette.surface }} handleIndicatorStyle={{ backgroundColor: palette.border }}>
+          <BottomSheetScrollView>
+            <View style={[S.sheetHeader, { borderBottomColor: palette.border }]}>
+              <View>
+                <Text style={[S.sheetTitle, { color: palette.text }]}>Edit Details</Text>
+              </View>
+              <Pressable onPress={() => setShowEditDetailsModal(false)}><Icon source="close" size={22} color={palette.muted} /></Pressable>
+            </View>
+            
+            <View style={{ paddingHorizontal: 20, paddingTop: 10 }}>
+              <Text style={[S.sheetLabel, { paddingHorizontal: 0 }]}>INVOICE NUMBER</Text>
+              <View style={[S.sheetNoteBox, { borderColor: palette.border, marginHorizontal: 0, marginBottom: 16 }]}>
+                <SheetInput 
+                  style={[S.sheetNoteInput, { color: palette.text }]} 
+                  value={editInvNum} 
+                  onChangeText={setEditInvNum} 
+                  placeholder="INV-0000" 
+                  placeholderTextColor={palette.muted} 
+                />
+              </View>
+
+              <Text style={[S.sheetLabel, { paddingHorizontal: 0 }]}>ISSUE DATE</Text>
+              <Pressable
+                style={[S.sheetNoteBox, { borderColor: palette.border, marginHorizontal: 0, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                onPress={() => setShowEditDatePicker(!showEditDatePicker)}
+              >
+                <Text style={{ color: palette.text, fontSize: 15 }}>
+                  {editDateObject.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                </Text>
+                <Icon source="calendar-month-outline" size={20} color={palette.muted} />
+              </Pressable>
+
+              {Platform.OS !== 'web' && showEditDatePicker && (
+                <View style={{ marginBottom: 16, backgroundColor: palette.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: palette.border }}>
+                  <DateTimePicker
+                    value={editDateObject}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') setShowEditDatePicker(false);
+                      if (selectedDate) setEditDateObject(selectedDate);
+                    }}
+                  />
+                </View>
+              )}
+
+              <Text style={[S.sheetLabel, { paddingHorizontal: 0 }]}>DUE DATE (OPTIONAL)</Text>
+              <Pressable
+                style={[S.sheetNoteBox, { borderColor: palette.border, marginHorizontal: 0, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                onPress={() => setShowEditDuePicker(!showEditDuePicker)}
+              >
+                <Text style={{ color: editDueDateObject ? palette.text : palette.muted, fontSize: 15 }}>
+                  {editDueDateObject 
+                    ? editDueDateObject.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : 'Select due date'}
+                </Text>
+                {editDueDateObject ? (
+                  <Pressable onPress={(e) => { e.stopPropagation(); setEditDueDateObject(undefined); }}>
+                    <Icon source="close-circle-outline" size={20} color={palette.muted} />
+                  </Pressable>
+                ) : (
+                  <Icon source="calendar-month-outline" size={20} color={palette.muted} />
+                )}
+              </Pressable>
+
+              {Platform.OS !== 'web' && showEditDuePicker && (
+                <View style={{ marginBottom: 16, backgroundColor: palette.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: palette.border }}>
+                  <DateTimePicker
+                    value={editDueDateObject || defaultFallbackDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') setShowEditDuePicker(false);
+                      if (selectedDate) setEditDueDateObject(selectedDate);
+                    }}
+                  />
+                </View>
+              )}
+
+              <Pressable style={[S.sheetSaveBtn, { backgroundColor: palette.primary, marginHorizontal: 0, marginTop: 10 }]} onPress={handleSaveDetails} disabled={isSavingDetails}>
+                {isSavingDetails ? <ActivityIndicator color="#fff" /> : <Text style={S.sheetSaveTxt}>Save Changes</Text>}
+              </Pressable>
+            </View>
           </BottomSheetScrollView>
         </BottomSheet>
       )}
@@ -622,6 +837,8 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
   onClose: () => void;
   brand: InvoiceBrand;
 }) {
+  "use no memo";
+
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const sym = currency.symbol;
@@ -645,14 +862,16 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
   const [sigLabel, setSigLabel] = useState(brand.signatureLabel || 'Authorized Signature');
 
   // Keep local state in sync when brand prop changes
-  React.useEffect(() => {
+  const [prevBrand, setPrevBrand] = useState({ value: brand });
+  if (brand !== prevBrand.value) {
+    setPrevBrand({ value: brand });
     setEditName(brand.businessName);
     setEditTag(brand.tagline);
     setEditPrefix(brand.filePrefix);
     setEditLogo(brand.logoUri);
     setEditSig(brand.signatureUri);
     setSigLabel(brand.signatureLabel || 'Authorized Signature');
-  }, [brand]);
+  }
 
   const pickImage = async (type: 'logo' | 'signature') => {
     if (type === 'signature') {
@@ -754,9 +973,9 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
       const saved = await saveDocumentWithNativePicker(file);
       if (saved && Platform.OS === 'android') Alert.alert('PDF saved', `${file.fileName} was saved to the folder you selected.`);
       if (!saved) Alert.alert('Save cancelled', 'No PDF was saved.');
+      setShareLoading(null);
     } catch (e: any) {
       Alert.alert('Save Failed', e?.message ?? 'Could not save PDF.');
-    } finally {
       setShareLoading(null);
     }
   };
@@ -767,9 +986,9 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
       const file = await createImageExport();
       setShareLoading(null);
       await saveImageToPhotoLibrary(file.uri, file.fileName);
+      setShareLoading(null);
     } catch (e: any) {
       Alert.alert('Save Failed', e?.message ?? 'Could not save invoice image.');
-    } finally {
       setShareLoading(null);
     }
   };
@@ -783,9 +1002,9 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
       const saved = await saveDocumentWithNativePicker(file);
       if (saved && Platform.OS === 'android') Alert.alert('CSV saved', `${file.fileName} was saved to the folder you selected.`);
       if (!saved) Alert.alert('Save cancelled', 'No CSV was saved.');
+      setShareLoading(null);
     } catch (e: any) {
       Alert.alert('Save Failed', e?.message ?? 'Could not save CSV.');
-    } finally {
       setShareLoading(null);
     }
   };
@@ -817,7 +1036,8 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
       } else {
         Alert.alert('Email unavailable', 'Could not send or open an invoice email draft.');
       }
-    } finally {
+      setShareLoading(null);
+    } catch {
       setShareLoading(null);
     }
   };
@@ -827,9 +1047,9 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
     try {
       await Clipboard.setStringAsync(`subscriptiontracker://invoice/${invoice.id}`);
       Alert.alert('Link copied', 'Invoice link copied to clipboard.');
+      setShareLoading(null);
     } catch {
       Alert.alert('Copy failed', 'Could not copy invoice link.');
-    } finally {
       setShareLoading(null);
     }
   };
@@ -854,10 +1074,13 @@ function PdfPreviewModal({ invoice, currency, palette, templateId, onSelectTempl
 
   const handleNativeShare = async () => {
     if (shareLoading) return;
+    setShareLoading('ad');
     try {
       await showInvoiceExportRewardAd();
+      setShareLoading(null);
     } catch {
       // Export should still work if the ad has no fill or cannot load.
+      setShareLoading(null);
     }
     setShowExportSheet(true);
   };
@@ -1453,5 +1676,9 @@ function createStyles(palette: any) {
     sheetNoteInput:{ fontSize: 15, paddingVertical: 0 },
     sheetSaveBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginHorizontal: 20, marginTop: 20, marginBottom: 32, height: 54, borderRadius: 27 },
     sheetSaveTxt:  { fontSize: 16, fontWeight: '700', color: '#fff' },
+    attachmentCard:   { borderRadius: 16, borderWidth: 1, padding: 14, marginTop: 14, overflow: 'hidden' },
+    attachmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+    attachmentTitle:  { fontSize: 13, fontWeight: '700' },
+    attachmentImage:  { width: '100%', height: 260, borderRadius: 8 },
   });
 }

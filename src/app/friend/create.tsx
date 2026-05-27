@@ -20,6 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const COLORS = ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#8B5CF6', '#14B8A6'];
 
 export default function CreateSplitFriendScreen() {
+  "use no memo";
+
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useAppData();
@@ -47,10 +49,10 @@ export default function CreateSplitFriendScreen() {
         note: note.trim() || undefined,
         color,
       });
+      setSaving(false);
       router.back();
     } catch {
       Alert.alert('Error', 'Could not save profile.');
-    } finally {
       setSaving(false);
     }
   }, [color, displayName, email, note, user]);

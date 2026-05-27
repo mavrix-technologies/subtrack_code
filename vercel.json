@@ -1,0 +1,16 @@
+{
+  "buildCommand": "npm run build:web",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/reminders/*.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/reminders/:path*",
+      "destination": "/api/reminders/:path*"
+    }
+  ]
+}

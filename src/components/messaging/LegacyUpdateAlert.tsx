@@ -45,6 +45,8 @@ function shouldShowUpdateAlert(campaign: UpdateAlertCampaign) {
 }
 
 export function LegacyUpdateAlert() {
+  "use no memo";
+
   const { palette } = useTheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const [visible, setVisible] = useState(false);
@@ -60,7 +62,6 @@ export function LegacyUpdateAlert() {
       );
     } catch (error) {
       console.warn('Update alert sync failed:', error);
-      setCampaign(DEFAULT_UPDATE_ALERT);
     }
   }, []);
 

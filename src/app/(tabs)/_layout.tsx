@@ -17,13 +17,14 @@ import { useTheme } from '@/contexts/theme';
 
 const tabItems: Record<string, { icon: string; selectedIcon: string; label: string }> = {
   index:         { icon: 'view-dashboard-outline', selectedIcon: 'view-dashboard',  label: 'Home' },
+  assistant:     { icon: 'sparkles',               selectedIcon: 'sparkles',        label: 'AI' },
   subscriptions: { icon: 'repeat',                 selectedIcon: 'repeat',          label: 'Subs' },
   expenses:      { icon: 'wallet-outline',          selectedIcon: 'wallet',          label: 'Expenses' },
   invoices:      { icon: 'receipt-text-outline',    selectedIcon: 'receipt-text',    label: 'Invoices' },
   settings:      { icon: 'cog-outline',             selectedIcon: 'cog',             label: 'Settings' },
 };
 
-const tabs = ['index', 'subscriptions', 'expenses', 'invoices', 'settings'];
+const tabs = ['index', 'assistant', 'subscriptions', 'expenses', 'invoices', 'settings'];
 
 function TabButton({
   route,
@@ -36,6 +37,8 @@ function TabButton({
   onPress: () => void;
   palette: ReturnType<typeof useTheme>['palette'];
 }) {
+  "use no memo";
+
   const item = tabItems[route.name];
   const scale = useSharedValue(focused ? 1 : 0.88);
   const translateY = useSharedValue(focused ? -2 : 0);
@@ -43,13 +46,13 @@ function TabButton({
 
   useEffect(() => {
     if (focused) {
-      scale.value = withSpring(1.15, { damping: 12, stiffness: 200, mass: 0.6 });
-      translateY.value = withSpring(-3, { damping: 14, stiffness: 220 });
-      opacity.value = withTiming(1, { duration: 150 });
+      scale.set(withSpring(1.15, { damping: 12, stiffness: 200, mass: 0.6 }));
+      translateY.set(withSpring(-3, { damping: 14, stiffness: 220 }));
+      opacity.set(withTiming(1, { duration: 150 }));
     } else {
-      scale.value = withSpring(1, { damping: 14, stiffness: 200 });
-      translateY.value = withSpring(0, { damping: 14, stiffness: 220 });
-      opacity.value = withTiming(0.75, { duration: 150 });
+      scale.set(withSpring(1, { damping: 14, stiffness: 200 }));
+      translateY.set(withSpring(0, { damping: 14, stiffness: 220 }));
+      opacity.set(withTiming(0.75, { duration: 150 }));
     }
   }, [focused, opacity, scale, translateY]);
 
@@ -172,6 +175,7 @@ export default function TabsLayout() {
       tabBar={(props) => <AppTabBar {...props} />}
     >
       <Tabs.Screen name="index" />
+      <Tabs.Screen name="assistant" />
       <Tabs.Screen name="subscriptions" />
       <Tabs.Screen name="expenses" />
       <Tabs.Screen name="invoices" />

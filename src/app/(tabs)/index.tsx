@@ -1,4 +1,5 @@
-import { BrandIcon, POPULAR_APPS } from '@/components/BrandIcon';
+import { BrandIcon } from '@/components/BrandIcon';
+import { POPULAR_APPS } from '@/constants/brands';
 import { HomeBannerAd } from '@/components/ads/HomeBannerAd';
 import { HomeNativeAd } from '@/components/ads/HomeNativeAd';
 import { useAppData } from '@/contexts/app-data';

@@ -1,5 +1,4 @@
 import {
-  Subscription,
   SubscriptionFormValues,
   SubscriptionInput,
 } from '@/types/subscription';
@@ -23,44 +22,6 @@ export function getEmptySubscriptionForm(): SubscriptionFormValues {
     startedOn: '',
     lastUsedAt: '',
     yearlyPrice: '',
-  };
-}
-
-export function toSubscriptionFormValues(
-  subscription: SubscriptionInput
-): SubscriptionFormValues {
-  return {
-    name: subscription.name,
-    price: String(subscription.price),
-    billingCycle: subscription.billingCycle,
-    nextBillingDate: subscription.nextBillingDate,
-    category: subscription.category,
-    icon: subscription.icon,
-    color: subscription.color,
-    planName: subscription.planName ?? '',
-    notes: subscription.notes ?? '',
-    startedOn: subscription.startedOn ?? '',
-    lastUsedAt: subscription.lastUsedAt ?? '',
-    yearlyPrice: subscription.yearlyPrice ? String(subscription.yearlyPrice) : '',
-  };
-}
-
-export function subscriptionToInput(
-  subscription: Subscription
-): SubscriptionInput {
-  return {
-    name: subscription.name,
-    price: subscription.price,
-    billingCycle: subscription.billingCycle,
-    nextBillingDate: subscription.nextBillingDate,
-    category: subscription.category,
-    icon: subscription.icon,
-    color: subscription.color,
-    planName: subscription.planName,
-    notes: subscription.notes,
-    startedOn: subscription.startedOn,
-    lastUsedAt: subscription.lastUsedAt,
-    yearlyPrice: subscription.yearlyPrice,
   };
 }
 
@@ -103,10 +64,6 @@ export function validateSubscriptionForm(values: SubscriptionFormValues) {
   }
 
   return errors;
-}
-
-export function hasFormErrors(errors: SubscriptionFormErrors) {
-  return Object.keys(errors).length > 0;
 }
 
 export function formValuesToInput(

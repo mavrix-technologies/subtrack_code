@@ -29,6 +29,8 @@ function dismissalKey(userId: string, campaign: HomeBannerCampaign) {
 }
 
 export function HomeRemoteBanner() {
+  "use no memo";
+
   const { user } = useAppData();
   const { palette } = useTheme();
   const { width } = useWindowDimensions();

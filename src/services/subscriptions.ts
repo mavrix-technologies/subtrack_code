@@ -80,12 +80,3 @@ export async function deleteSubscription(userId: string, subscriptionId: string)
 
   await deleteDoc(userSubscriptionDoc(firebase.db, userId, subscriptionId));
 }
-
-export async function seedSubscriptions(
-  userId: string,
-  subscriptions: SubscriptionInput[]
-) {
-  await Promise.all(
-    subscriptions.map((subscription) => createSubscription(userId, subscription))
-  );
-}

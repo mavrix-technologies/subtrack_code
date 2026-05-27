@@ -1,4 +1,3 @@
-import { Expense } from '@/store/useExpenseStore';
 import { Invoice } from '@/store/useInvoiceStore';
 import { Subscription, SubscriptionCategory } from '@/types/subscription';
 import { getEffectiveNextBillingDate } from './dates';
@@ -36,12 +35,6 @@ export const getUpcomingRenewals = (subs: Subscription[], currentDate = new Date
     const bDate = new Date(getEffectiveNextBillingDate(b, currentDate));
     return aDate.getTime() - bDate.getTime();
   });
-};
-
-export const getTotalSpend = (subs: Subscription[], expenses: Expense[]) => {
-  const subTotal = subs.reduce((sum, sub) => sum + (sub.price || 0), 0);
-  const expenseTotal = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-  return subTotal + expenseTotal;
 };
 
 export const getPendingInvoicesTotal = (invoices: Invoice[]) => {

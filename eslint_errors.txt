@@ -1,0 +1,30 @@
+
+E:\Subscription Tracker\src\app\invoice\[id].tsx
+  43:20  error  Component definition is missing display name  react/display-name
+
+E:\Subscription Tracker\src\app\invoice\review.tsx
+    1:27   warning  'useMemo' is defined but never used                                                                                                                        @typescript-eslint/no-unused-vars
+   34:5    warning  'base64Image' is assigned a value but never used                                                                                                           @typescript-eslint/no-unused-vars
+  149:6    warning  React Hook React.useEffect has missing dependencies: 'discountState', 'subtotalState', and 'taxState'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  341:26   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                            react/no-unescaped-entities
+  354:64   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                            react/no-unescaped-entities
+  354:156  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                            react/no-unescaped-entities
+  354:167  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                            react/no-unescaped-entities
+
+E:\Subscription Tracker\src\app\invoice\scan.tsx
+  10:3   warning  'Platform' is defined but never used                                                                                     @typescript-eslint/no-unused-vars
+  11:3   warning  'ScrollView' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+  33:16  warning  'height' is assigned a value but never used                                                                              @typescript-eslint/no-unused-vars
+  44:5   warning  'imageUri' is assigned a value but never used                                                                            @typescript-eslint/no-unused-vars
+  72:6   warning  React Hook useEffect has missing dependencies: 'laserY' and 'reset'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\Subscription Tracker\src\app\subscription\[id].tsx
+  87:3  error    React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  90:6  warning  React Hook useEffect has a missing dependency: 'getReminderDate'. Either include it or remove the dependency array                                                                           react-hooks/exhaustive-deps
+
+E:\Subscription Tracker\src\contexts\currency.tsx
+  139:5  warning  React Hook useCallback has a missing dependency: 'currency.locale'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  156:5  warning  React Hook useCallback has a missing dependency: 'currency.locale'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 17 problems (6 errors, 11 warnings)
+

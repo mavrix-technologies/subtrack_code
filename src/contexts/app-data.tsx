@@ -62,6 +62,8 @@ const AUTH_BOOT_TIMEOUT_MS = 12000;
 const SUBSCRIPTIONS_BOOT_TIMEOUT_MS = 12000;
 
 export function AppDataProvider({ children }: PropsWithChildren) {
+  "use no memo";
+
   const [status, setStatus] = useState<AppStatus>('booting');
   const [user, setUser] = useState<AppUser | null>(null);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -102,6 +104,17 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         activeUserIdRef.current = nextUser?.uid ?? null;
         setUser(nextUser);
         setStatus('ready');
+        if (nextUser) {
+          void setAnalyticsUserId(nextUser.uid);
+        } else {
+          void setAnalyticsUserId(null);
+          useExpenseStore.getState().setExpenses([]);
+          useExpenseStore.getState().setLoading(true);
+          useInvoiceStore.getState().setInvoices([]);
+          useInvoiceStore.getState().setLoading(true);
+          useSplitFriendStore.getState().setFriends([]);
+          useSplitFriendStore.getState().setLoading(true);
+        }
       },
       (nextError) => {
         if (!isActive) return;
@@ -126,21 +139,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     };
   }, [bootAttempt]);
 
-  useEffect(() => {
-    if (!user) {
-      activeUserIdRef.current = null;
-      void setAnalyticsUserId(null);
-      useExpenseStore.getState().setExpenses([]);
-      useExpenseStore.getState().setLoading(true);
-      useInvoiceStore.getState().setInvoices([]);
-      useInvoiceStore.getState().setLoading(true);
-      useSplitFriendStore.getState().setFriends([]);
-      useSplitFriendStore.getState().setLoading(true);
-      return;
-    }
 
-    void setAnalyticsUserId(user.uid);
-  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -385,9 +384,4 @@ export function useAppData() {
   const value = React.use(AppDataContext);
   if (!value) throw new Error('useAppData must be used inside AppDataProvider');
   return value;
-}
-
-export function useSubscriptionById(id?: string) {
-  const { subscriptions } = useAppData();
-  return subscriptions.find((subscription) => subscription.id === id) ?? null;
 }

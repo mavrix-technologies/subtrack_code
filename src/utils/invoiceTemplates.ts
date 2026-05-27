@@ -17,10 +17,11 @@ export type InvoiceData = {
   date: string;
   dueDate?: string;
   status: string;
-  items: { name: string; description?: string; price: number; qty: number }[];
+  items: { name: string; description?: string; price: number; qty: number; mrp?: number }[];
   subtotal: number;
   taxRate: number;
   taxAmount: number;
+  taxType?: 'cgst_sgst' | 'igst' | 'vat' | 'tax';
   discountAmount: number;
   total: number;
   amountPaid: number;
@@ -35,14 +36,14 @@ export type InvoiceData = {
   signatureLabel?: string;
 };
 
-export type Template = { id: string; name: string; description: string };
+type Template = { id: string; name: string; description: string };
 
 // ── Template registry ─────────────────────────────────────────────────────────
 
 export const TEMPLATES: Template[] = [
   { id: 'classic', name: 'Classic', description: 'Clean minimal accounting style' },
   { id: 'modern',  name: 'Modern',  description: 'Bold header with accent colour'  },
-  { id: 'compact', name: 'Compact', description: 'Dense single-page layout'        },
+  { id: 'royal',   name: 'Royal',   description: 'Premium elegant design with gold accents' },
 ];
 
 // ── Theme definition ──────────────────────────────────────────────────────────
@@ -80,15 +81,15 @@ const THEMES: Record<string, TemplateTheme> = {
     pad:          '56px',
     dateFormat:   'long',
   },
-  compact: {
-    accent:       '#111827',
-    bandBg:       null,
-    bandTextColor:'#111827',
+  royal: {
+    accent:       '#B8860B', // DarkGoldenRod
+    bandBg:       '#0F172A', // Slate 900
+    bandTextColor:'#FDE68A', // Amber 200
     topBarPx:     0,
     logoFilter:   '',
-    pad:          '40px',   // ~15mm
-    dateFormat:   'short',
-    extraCss:     `body { font-size: 13px; }`,
+    pad:          '24px',    // Outer padding, inner border
+    dateFormat:   'long',
+    extraCss:     `body { font-family: 'Playfair Display', 'Georgia', serif; }`,
   },
 };
 
@@ -140,8 +141,23 @@ function buildTotals(d: InvoiceData, sym: string, accent: string): string {
     rows += row('Subtotal', `${sym}${d.subtotal.toFixed(2)}`);
   if (d.discountAmount > 0)
     rows += row('Discount', `&#8722;${sym}${d.discountAmount.toFixed(2)}`, '#059669');
-  if (d.taxAmount > 0)
-    rows += row(`Tax (${d.taxRate}%)`, `${sym}${d.taxAmount.toFixed(2)}`);
+  
+  if (d.discountAmount > 0 || d.taxAmount > 0) {
+    const taxableAmount = Math.max(0, d.subtotal - d.discountAmount);
+    rows += row('Taxable Amount', `${sym}${taxableAmount.toFixed(2)}`);
+  }
+
+  if (d.taxAmount > 0) {
+    const taxType = d.taxType || 'tax';
+    if (taxType === 'cgst_sgst') {
+      rows += row(`CGST (${(d.taxRate / 2).toFixed(2)}%)`, `${sym}${(d.taxAmount / 2).toFixed(2)}`);
+      rows += row(`SGST (${(d.taxRate / 2).toFixed(2)}%)`, `${sym}${(d.taxAmount / 2).toFixed(2)}`);
+    } else {
+      const label = taxType === 'igst' ? 'IGST' : taxType === 'vat' ? 'VAT' : 'Tax';
+      rows += row(`${label} (${d.taxRate}%)`, `${sym}${d.taxAmount.toFixed(2)}`);
+    }
+  }
+
   if (d.amountPaid > 0)
     rows += row('Amount Paid', `&#8722;${sym}${d.amountPaid.toFixed(2)}`, '#059669');
 
@@ -345,67 +361,148 @@ function buildModernPage(d: InvoiceData, theme: TemplateTheme, sym: string, invN
     </div>`;
 }
 
-function buildCompactPage(d: InvoiceData, theme: TemplateTheme, sym: string, invNum: string): string {
+function buildRoyalPage(d: InvoiceData, theme: TemplateTheme, sym: string, invNum: string): string {
   const bizName = d.businessName || 'SubTrack';
   const bizTag  = d.businessTagline || 'Invoice Management';
   const logo    = d.logoUri
-    ? `<img src="${d.logoUri}" style="height:36px;max-width:120px;object-fit:contain;display:block;margin-bottom:4px;" />`
+    ? `<img src="${d.logoUri}" style="height:60px;max-width:200px;object-fit:contain;display:block;margin:0 auto 24px;" />`
     : '';
-  const isOverdue = d.dueDate && new Date(d.dueDate) < new Date() && d.status !== 'paid';
+
   const issueDate = fmtDate(d.date, theme.dateFormat);
   const dueStr    = d.dueDate ? fmtDate(d.dueDate, theme.dateFormat) : null;
+  const isOverdue = d.dueDate && new Date(d.dueDate) < new Date() && d.status !== 'paid';
+
+  // Table rows
+  const rows = d.items.map((it) => `
+    <tr>
+      <td style="padding:20px 0;border-bottom:1px solid #F0F0F0;color:#111827;">
+        <div style="font-size:14px;font-weight:600;letter-spacing:0.5px;">${esc(it.name)}</div>
+        ${it.description ? `<div style="font-size:12px;color:#888;margin-top:6px;font-style:italic;">${esc(it.description)}</div>` : ''}
+      </td>
+      <td style="padding:20px 0;border-bottom:1px solid #F0F0F0;text-align:center;color:#555;font-size:13px;">${it.qty}</td>
+      <td style="padding:20px 0;border-bottom:1px solid #F0F0F0;text-align:right;color:#555;font-size:13px;">${sym}${it.price.toFixed(2)}</td>
+      <td style="padding:20px 0;border-bottom:1px solid #F0F0F0;text-align:right;color:#111827;font-weight:600;font-size:13px;">${sym}${(it.price * it.qty).toFixed(2)}</td>
+    </tr>
+  `).join('');
+
+  // Totals
+  const row = (label: string, value: string, isTotal: boolean = false) => 
+    `<div style="display:flex;justify-content:space-between;padding:14px 0;${isTotal ? `border-top:1px solid ${theme.accent}; border-bottom:1px solid ${theme.accent}; margin-top:12px;` : 'border-bottom:1px solid #F9F9F9;'}">
+       <span style="font-size:${isTotal ? '14px' : '12px'};color:${isTotal ? '#111' : '#666'};text-transform:uppercase;letter-spacing:1px;font-weight:${isTotal ? '600' : 'normal'};">${label}</span>
+       <span style="font-size:${isTotal ? '18px' : '14px'};color:${isTotal ? theme.accent : '#111'};font-weight:${isTotal ? '600' : 'normal'};">${value}</span>
+     </div>`;
+
+  let totalsHtml = '';
+  if (d.subtotal !== d.total) totalsHtml += row('Subtotal', `${sym}${d.subtotal.toFixed(2)}`);
+  if (d.discountAmount > 0) totalsHtml += row('Discount', `-${sym}${d.discountAmount.toFixed(2)}`);
+  if (d.taxAmount > 0) totalsHtml += row('Tax', `${sym}${d.taxAmount.toFixed(2)}`);
+  if (d.amountPaid > 0) totalsHtml += row('Amount Paid', `-${sym}${d.amountPaid.toFixed(2)}`);
+  totalsHtml += row('Total Due', `${sym}${d.balanceDue.toFixed(2)}`, true);
 
   return `
-    <!-- all content in one padded column -->
-    <div style="padding:${theme.pad};flex:1;display:flex;flex-direction:column;">
+    <div style="margin:0; flex:1; display:flex; flex-direction:column; background:#fff; padding:60px 70px; font-family:'Playfair Display', 'Georgia', serif;">
+      
+      <!-- Top Decorative Line -->
+      <div style="width:100%;height:1px;background:${theme.accent};margin-bottom:3px;"></div>
+      <div style="width:100%;height:3px;background:${theme.accent};margin-bottom:60px;"></div>
 
-      <!-- header: logo+name left, INVOICE+num+status right, thick bottom border -->
-      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:3px solid #111827;margin-bottom:20px;">
-        <div>
-          ${logo}
-          <div style="font-size:20px;font-weight:800;color:#111827;letter-spacing:-0.5px;">${esc(bizName)}</div>
-          <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">${esc(bizTag)}</div>
+      <!-- Centered Header -->
+      <div style="text-align:center;margin-bottom:60px;">
+        ${logo}
+        <div style="font-size:26px;font-weight:600;color:#111;text-transform:uppercase;letter-spacing:8px;margin-bottom:10px;">${esc(bizName)}</div>
+        <div style="font-size:13px;color:#777;font-style:italic;letter-spacing:2px;">${esc(bizTag)}</div>
+      </div>
+
+      <!-- Meta Grid: Invoice No, Date, Billed To -->
+      <div style="display:flex;justify-content:space-between;margin-bottom:60px;border-top:1px solid #EAEAEA;border-bottom:1px solid #EAEAEA;padding:30px 0;">
+        
+        <div style="flex:1;padding-right:30px;">
+          <div style="font-size:10px;color:${theme.accent};text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;font-weight:600;">Billed To</div>
+          <div style="font-size:16px;font-weight:600;color:#111;margin-bottom:8px;letter-spacing:0.5px;">${esc(d.clientName)}</div>
+          ${d.clientEmail ? `<div style="font-size:13px;color:#666;margin-bottom:4px;">${esc(d.clientEmail)}</div>` : ''}
+          ${d.clientPhone ? `<div style="font-size:13px;color:#666;margin-bottom:4px;">${esc(d.clientPhone)}</div>` : ''}
+          ${d.clientAddress ? `<div style="font-size:13px;color:#666;line-height:1.6;margin-top:6px;">${d.clientAddress.replace(/\n/g, '<br/>')}</div>` : ''}
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:26px;font-weight:900;color:#111827;letter-spacing:-0.5px;">INVOICE</div>
-          <div style="font-size:12px;color:#6B7280;margin-top:2px;">${esc(invNum)} &nbsp;·&nbsp;
-            <span style="text-transform:capitalize;font-weight:600;color:${statusColor(d.status)};">${esc(d.status)}</span>
+
+        <div style="flex:1;text-align:center;border-left:1px solid #EAEAEA;border-right:1px solid #EAEAEA;padding:0 30px;">
+          <div style="font-size:10px;color:${theme.accent};text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;font-weight:600;">Invoice Detail</div>
+          
+          <div style="margin-bottom:20px;">
+            <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Invoice No.</div>
+            <div style="font-size:15px;color:#111;font-weight:600;letter-spacing:1px;">${esc(invNum)}</div>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Date Issued</div>
+            <div style="font-size:15px;color:#111;font-weight:600;letter-spacing:0.5px;">${issueDate}</div>
           </div>
         </div>
+
+        <div style="flex:1;text-align:right;padding-left:30px;">
+          <div style="font-size:10px;color:${theme.accent};text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;font-weight:600;">Status & Terms</div>
+          
+          <div style="margin-bottom:20px;">
+            <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Status</div>
+            <div style="display:inline-block;border:1px solid ${theme.accent};color:${theme.accent};padding:6px 16px;font-size:10px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${esc(d.status)}</div>
+          </div>
+
+          ${dueStr ? `
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Due Date</div>
+            <div style="font-size:15px;color:${isOverdue ? '#DC2626' : '#111'};font-weight:600;letter-spacing:0.5px;">${dueStr}</div>
+          </div>` : ''}
+        </div>
+
       </div>
 
-      <!-- meta bar: client | issue date | due date -->
-      <div style="display:flex;justify-content:space-between;background:#F9FAFB;padding:14px 16px;border-radius:8px;margin-bottom:20px;">
-        <div style="flex:1;padding-right:16px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#9CA3AF;margin-bottom:4px;">Bill To</div>
-          <div style="font-size:14px;font-weight:700;color:#111827;">${esc(d.clientName)}</div>
-          ${d.clientEmail ? `<div style="font-size:12px;color:#6B7280;margin-top:2px;">${esc(d.clientEmail)}</div>` : ''}
-          ${d.clientAddress ? `<div style="font-size:12px;color:#6B7280;margin-top:2px;">${d.clientAddress.replace(/\n/g, '<br/>')}</div>` : ''}
+      <!-- Items Table -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:50px;">
+        <thead>
+          <tr>
+            <th style="border-bottom:1px solid ${theme.accent};color:${theme.accent};padding:0 0 16px 0;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">Item Description</th>
+            <th style="border-bottom:1px solid ${theme.accent};color:${theme.accent};padding:0 0 16px 0;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">Qty</th>
+            <th style="border-bottom:1px solid ${theme.accent};color:${theme.accent};padding:0 0 16px 0;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">Price</th>
+            <th style="border-bottom:1px solid ${theme.accent};color:${theme.accent};padding:0 0 16px 0;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+
+      <!-- Totals & Notes -->
+      <div style="display:flex;justify-content:space-between;gap:60px;">
+        <div style="flex:1;">
+          ${(d.notes || d.terms) ? `
+            <div style="padding-top:10px;">
+              ${d.notes ? `<div style="font-size:10px;font-weight:600;color:${theme.accent};text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;">Notes</div><div style="font-size:13px;color:#666;line-height:1.8;margin-bottom:28px;font-style:italic;">${d.notes.replace(/\n/g, '<br/>')}</div>` : ''}
+              ${d.terms ? `<div style="font-size:10px;font-weight:600;color:${theme.accent};text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;">Terms</div><div style="font-size:13px;color:#666;line-height:1.8;font-style:italic;">${d.terms.replace(/\n/g, '<br/>')}</div>` : ''}
+            </div>
+          ` : ''}
+          ${d.balanceDue <= 0.01 ? `<div style="margin-top:40px;"><span style="border:1px solid #059669;color:#059669;font-size:13px;font-weight:600;letter-spacing:5px;padding:10px 24px;text-transform:uppercase;">Paid In Full</span></div>` : ''}
         </div>
-        <div style="text-align:right;padding-right:24px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#9CA3AF;margin-bottom:4px;">Issue Date</div>
-          <div style="font-size:13px;font-weight:600;color:#111827;">${issueDate}</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#9CA3AF;margin-bottom:4px;">Due Date</div>
-          ${dueStr
-            ? `<div style="font-size:13px;font-weight:600;color:${isOverdue ? '#DC2626' : '#111827'};">${dueStr}</div>`
-            : `<div style="font-size:13px;font-weight:600;color:#6B7280;">On Receipt</div>`}
+        <div style="width:340px;">
+          ${totalsHtml}
         </div>
       </div>
 
-      <!-- items table -->
-      ${buildTableSection(d.items, sym, theme.accent)}
+      <!-- Signature -->
+      ${d.signatureUri ? `
+      <div style="margin-top:auto;text-align:right;padding-top:50px;">
+        <img src="${d.signatureUri}" style="height:70px;max-width:240px;object-fit:contain;display:inline-block;margin-bottom:16px;" />
+        <div style="border-top:1px solid #EAEAEA;padding-top:14px;font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;width:240px;margin-left:auto;">
+          ${esc(d.signatureLabel || 'Authorized Signature')}
+        </div>
+      </div>` : ''}
 
-      <!-- totals -->
-      ${buildTotals(d, sym, theme.accent)}
-
-      <!-- notes + signature -->
-      ${buildNotesAndSignature(d, '#D1D5DB')}
-
-      <!-- footer -->
-      ${buildFooter(bizName, invNum, theme.dateFormat)}
-    </div>`;
+      <!-- Bottom Decorative Line -->
+      <div style="margin-top:${d.signatureUri ? '40px' : 'auto'};width:100%;height:1px;background:#EAEAEA;margin-bottom:20px;"></div>
+      <div style="text-align:center;font-size:11px;color:#999;letter-spacing:2px;text-transform:uppercase;">
+        Thank you for your business
+      </div>
+      
+    </div>
+  `;
 }
 
 // ── Main generator ─────────────────────────────────────────────────────────────
@@ -417,7 +514,7 @@ function generateHtml(templateId: string, d: InvoiceData, sym: string): string {
   let pageContent: string;
   switch (templateId) {
     case 'modern':  pageContent = buildModernPage(d, theme, sym, invNum);  break;
-    case 'compact': pageContent = buildCompactPage(d, theme, sym, invNum); break;
+    case 'royal':   pageContent = buildRoyalPage(d, theme, sym, invNum);   break;
     default:        pageContent = buildClassicPage(d, theme, sym, invNum); break;
   }
 

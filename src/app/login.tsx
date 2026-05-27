@@ -29,6 +29,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 type Mode = 'signin' | 'signup';
 
 export default function LoginScreen() {
+  "use no memo";
+
   const { palette, theme } = useTheme();
   const styles = useMemo(() => createStyles(palette, theme), [palette, theme]);
   const insets = useSafeAreaInsets();
@@ -67,10 +69,10 @@ export default function LoginScreen() {
       } else {
         await signUpWithEmail(name.trim(), email.trim(), password);
       }
+      setLoading(false);
       goHomeAfterAuth();
     } catch (err: any) {
       setError(friendlyError(err?.code || err?.message || ''));
-    } finally {
       setLoading(false);
     }
   };
@@ -87,9 +89,9 @@ export default function LoginScreen() {
     try {
       await sendPasswordReset(trimmedEmail);
       Alert.alert('Reset email sent', 'Check your inbox for a password reset link.');
+      setLoading(false);
     } catch (err: any) {
       setError(friendlyError(err?.code || err?.message || ''));
-    } finally {
       setLoading(false);
     }
   };
@@ -99,10 +101,10 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await continueAsGuest();
+      setLoading(false);
       goHomeAfterAuth();
     } catch (err: any) {
       setError(friendlyError(err?.code || err?.message || ''));
-    } finally {
       setLoading(false);
     }
   };
@@ -112,12 +114,12 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signInWithGoogle();
+      setLoading(false);
       goHomeAfterAuth();
     } catch (err: any) {
       if (err?.message !== 'Google sign in was cancelled') {
         setError(err?.message || 'Failed to sign in with Google');
       }
-    } finally {
       setLoading(false);
     }
   };
@@ -127,12 +129,12 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signInWithApple();
+      setLoading(false);
       goHomeAfterAuth();
     } catch (err: any) {
       if (err.message !== 'User cancelled Apple Sign-In') {
         setError(err?.message || 'Failed to sign in with Apple');
       }
-    } finally {
       setLoading(false);
     }
   };

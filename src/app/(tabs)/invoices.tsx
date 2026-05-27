@@ -2,8 +2,10 @@ import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';
 import { Invoice, InvoiceStatus, getDueDaysLabel, useInvoiceStore } from '@/store/useInvoiceStore';
 import { formatShortDate } from '@/utils/dates';
+import { useAppData } from '@/contexts/app-data';
+import { processOfflineQueue } from '@/services/offlineQueueService';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -186,8 +188,17 @@ export default function InvoicesScreen() {
   const S = useMemo(() => createStyles(palette), [palette]);
   const { invoices, isLoading } = useInvoiceStore();
   const { formatAmount } = useCurrency();
+  const { user } = useAppData();
   const [filter, setFilter] = useState<FilterKey>('All');
   const [chartActiveIdx, setChartActiveIdx] = useState(5);
+
+  useEffect(() => {
+    if (user?.uid) {
+      processOfflineQueue(user.uid).catch((err) => {
+        console.warn('Deferred offline sync queue processing failed:', err);
+      });
+    }
+  }, [user]);
 
   const stats = useMemo(() => ({
     outstanding: invoices.filter(i => i.status === 'unpaid' || i.status === 'overdue').reduce((s, i) => s + (i.balanceDue ?? i.total), 0),
@@ -221,9 +232,14 @@ export default function InvoicesScreen() {
               <Text style={S.heroTitle}>Invoices</Text>
               <Text style={S.heroSubtitle}>{invoices.length} invoice{invoices.length !== 1 ? 's' : ''}</Text>
             </View>
-            <Pressable style={[S.addBtn, { backgroundColor: palette.primary }]} onPress={() => router.push('/invoice/create')}>
-              <Icon source="plus" size={20} color="#fff" />
-            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable style={[S.addBtn, { backgroundColor: palette.primary }]} onPress={() => router.push('/invoice/scan')}>
+                <Icon source="camera-outline" size={20} color="#fff" />
+              </Pressable>
+              <Pressable style={[S.addBtn, { backgroundColor: palette.primary }]} onPress={() => router.push('/invoice/create')}>
+                <Icon source="plus" size={20} color="#fff" />
+              </Pressable>
+            </View>
           </View>
 
           {/* Big total amount */}

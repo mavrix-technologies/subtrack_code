@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const COLORS = ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#8B5CF6', '#14B8A6'];
 
 export default function SplitFriendDetailScreen() {
+  "use no memo";
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
@@ -45,14 +47,16 @@ export default function SplitFriendDetailScreen() {
   const [color, setColor] = useState(friend?.color ?? COLORS[0]);
   const [saving, setSaving] = useState(false);
 
-  React.useEffect(() => {
+  const [prevFriend, setPrevFriend] = useState(friend);
+  if (friend !== prevFriend) {
+    setPrevFriend(friend);
     if (friend) {
       setName(friend.displayName);
       setEmail(friend.email ?? '');
       setNote(friend.note ?? '');
       setColor(friend.color ?? COLORS[0]);
     }
-  }, [friend]);
+  }
 
   const persist = async () => {
     if (!user || !friend) return;
@@ -69,10 +73,10 @@ export default function SplitFriendDetailScreen() {
         note: note.trim() || undefined,
         color,
       });
+      setSaving(false);
       setEditing(false);
     } catch {
       Alert.alert('Error', 'Could not update profile.');
-    } finally {
       setSaving(false);
     }
   };

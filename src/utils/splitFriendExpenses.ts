@@ -1,7 +1,7 @@
 import type { Expense } from '@/store/useExpenseStore';
 import type { SplitFriend } from '@/types/splitFriend';
 
-export function participantMatchesFriend(
+function participantMatchesFriend(
   p: NonNullable<Expense['participants']>[number],
   friend: SplitFriend
 ): boolean {

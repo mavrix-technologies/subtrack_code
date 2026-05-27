@@ -1,5 +1,6 @@
 import { useAppData } from '@/contexts/app-data';
-import { CURRENCIES, CurrencyOption, useCurrency } from '@/contexts/currency';
+import { useCurrency } from '@/contexts/currency';
+import { CURRENCIES, CurrencyOption } from '@/constants/currencies';
 import { useTheme } from '@/contexts/theme';
 import {
   deleteSignedInUserDataAndAccount,
@@ -35,6 +36,8 @@ import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
+  "use no memo";
+
   const { palette, theme, setTheme } = useTheme();
   const { currency, setCurrency } = useCurrency();
   const {
@@ -103,7 +106,7 @@ export default function SettingsScreen() {
       .join('')
       .toUpperCase()
       .slice(0, 2);
-  }, [user?.name]);
+  }, [user]);
 
   // Pick the next upcoming subscription as the test target, fallback to first
   const testSub = upcomingRenewals[0] ?? subscriptions[0] ?? null;
@@ -191,9 +194,9 @@ export default function SettingsScreen() {
         `A test renewal notification for "${testSub.name}" will appear in ~2 seconds.\n\nMake sure sound is on!`,
         [{ text: 'Got it', style: 'default' }]
       );
+      setIsSendingTest(false);
     } catch (err: any) {
       Alert.alert('Failed', err?.message ?? 'Could not send notification.');
-    } finally {
       setIsSendingTest(false);
     }
   };
@@ -251,9 +254,9 @@ export default function SettingsScreen() {
     setIsAccountBusy(true);
     try {
       await exportUserData(user);
+      setIsAccountBusy(false);
     } catch (err: any) {
       Alert.alert('Export failed', err?.message ?? 'Could not export your data.');
-    } finally {
       setIsAccountBusy(false);
     }
   };
@@ -307,6 +310,7 @@ export default function SettingsScreen() {
                     try {
                       await deleteSignedInUserDataAndAccount(user.uid);
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      setIsAccountBusy(false);
                     } catch (err: any) {
                       Alert.alert(
                         'Could not delete account',
@@ -314,7 +318,6 @@ export default function SettingsScreen() {
                           ? 'Please sign out, sign in again, and retry account deletion.'
                           : err?.message ?? 'Please try again later.'
                       );
-                    } finally {
                       setIsAccountBusy(false);
                     }
                   },

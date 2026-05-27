@@ -15,6 +15,8 @@ const ThemeContext = createContext<ThemeContextType | null>(null);
 const themeStorageKey = (userId: string) => `@subtrack_theme:${userId}`;
 
 export function ThemeProvider({ children }: PropsWithChildren) {
+  "use no memo";
+
   const { user } = useAppData();
   const systemTheme = Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
   const [theme, setThemeState] = useState<'light' | 'dark'>(systemTheme);

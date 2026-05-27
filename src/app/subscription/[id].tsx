@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Switch } from 'react-native';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, Switch, Platform, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,11 +8,14 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useTheme } from '@/contexts/theme';
 import { formatDisplayDate, getEffectiveNextBillingDate, parseIsoDate } from '@/utils/dates';
 import { useAppData } from '@/contexts/app-data';
-import { BrandIcon, POPULAR_APPS } from '@/components/BrandIcon';
+import { BrandIcon } from '@/components/BrandIcon';
+import { POPULAR_APPS } from '@/constants/brands';
 import { useCurrency } from '@/contexts/currency';
 import * as Haptics from 'expo-haptics';
 
 export default function SubscriptionDetailScreen() {
+  "use no memo";
+
   const { palette } = useTheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const { id } = useLocalSearchParams();
@@ -23,7 +26,44 @@ export default function SubscriptionDetailScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   
   const sub = subscriptions.find(s => s.id === id);
-  const appDef = sub ? POPULAR_APPS.find(a => a.id === sub.icon) : null;
+
+  const [reminderDateStr, setReminderDateStr] = useState(() => {
+    if (!sub) return new Date().toISOString().split('T')[0];
+    // get reminder date helper inline
+    const getReminderDateVal = () => {
+      if (sub.reminderCustomDate) {
+        return new Date(sub.reminderCustomDate);
+      }
+      const nextIso = getEffectiveNextBillingDate(sub);
+      const nextDate = parseIsoDate(nextIso);
+      if (!nextDate) return new Date();
+      const daysBefore = sub.reminderDays ?? 3;
+      const reminderDate = new Date(nextDate);
+      reminderDate.setDate(reminderDate.getDate() - daysBefore);
+      return reminderDate;
+    };
+    return getReminderDateVal().toISOString().split('T')[0];
+  });
+  const appDef = sub ? POPULAR_APPS.find((a: any) => a.id === sub.icon) : null;
+
+  const getReminderDate = useCallback(() => {
+    if (!sub) return new Date();
+    if (sub.reminderCustomDate) {
+      return new Date(sub.reminderCustomDate);
+    }
+    const nextIso = getEffectiveNextBillingDate(sub);
+    const nextDate = parseIsoDate(nextIso);
+    if (!nextDate) return new Date();
+    const daysBefore = sub.reminderDays ?? 3;
+    const reminderDate = new Date(nextDate);
+    reminderDate.setDate(reminderDate.getDate() - daysBefore);
+    return reminderDate;
+  }, [sub]);
+
+  useEffect(() => {
+    const d = getReminderDate();
+    setReminderDateStr(d.toISOString().split('T')[0]);
+  }, [sub?.reminderCustomDate, getReminderDate]);
 
   if (!sub) {
     return (
@@ -45,18 +85,17 @@ export default function SubscriptionDetailScreen() {
   const isPaused = sub.status === 'paused';
   const remindersEnabled = sub.remindersEnabled ?? true;
 
-  const getReminderDate = () => {
-    if (sub.reminderCustomDate) {
-      return new Date(sub.reminderCustomDate);
+
+
+  const handleReminderDateStrChange = (val: string) => {
+    setReminderDateStr(val);
+    const parsed = new Date(val);
+    if (!isNaN(parsed.getTime())) {
+      updateSubData({ reminderCustomDate: parsed.toISOString() });
     }
-    const nextIso = getEffectiveNextBillingDate(sub);
-    const nextDate = parseIsoDate(nextIso);
-    if (!nextDate) return new Date();
-    const daysBefore = sub.reminderDays ?? 3;
-    const reminderDate = new Date(nextDate);
-    reminderDate.setDate(reminderDate.getDate() - daysBefore);
-    return reminderDate;
   };
+
+
 
   const updateSubData = async (updates: Partial<typeof sub>) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -212,35 +251,63 @@ export default function SubscriptionDetailScreen() {
 
           {remindersEnabled && (
             <>
-              <Pressable 
-                style={[styles.listItem, { borderBottomWidth: 1, borderBottomColor: palette.line }]}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <View style={styles.listLeft}>
-                  <View style={[styles.listIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-                    <Icon source="calendar-clock" size={20} color="#3B82F6" />
+              {Platform.OS === 'web' ? (
+                <View style={[styles.listItem, { borderBottomWidth: 1, borderBottomColor: palette.line }]}>
+                  <View style={styles.listLeft}>
+                    <View style={[styles.listIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                      <Icon source="calendar-clock" size={20} color="#3B82F6" />
+                    </View>
+                    <Text style={styles.listLabel} numberOfLines={1}>Remind me on</Text>
                   </View>
-              <Text style={styles.listLabel} numberOfLines={1}>Remind me on</Text>
+                  <TextInput
+                    value={reminderDateStr}
+                    onChangeText={handleReminderDateStrChange}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={palette.muted}
+                    style={{
+                      fontSize: 15,
+                      color: palette.text,
+                      textAlign: 'right',
+                      minWidth: 100,
+                      backgroundColor: 'transparent',
+                      borderWidth: 0,
+                      outlineStyle: 'none',
+                    } as any}
+                  />
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.listValue} numberOfLines={1}>
-                    {getReminderDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </Text>
-                  <Icon source="chevron-right" size={20} color={palette.muted} />
-                </View>
-              </Pressable>
-              
-              <DateTimePickerModal
-                isVisible={showDatePicker}
-                mode="date"
-                date={getReminderDate()}
-                onConfirm={(selectedDate) => {
-                  setShowDatePicker(false);
-                  updateSubData({ reminderCustomDate: selectedDate.toISOString() });
-                }}
-                onCancel={() => setShowDatePicker(false)}
-                textColor={palette.text} // respects dark mode
-              />
+              ) : (
+                <>
+                  <Pressable 
+                    style={[styles.listItem, { borderBottomWidth: 1, borderBottomColor: palette.line }]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <View style={styles.listLeft}>
+                      <View style={[styles.listIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                        <Icon source="calendar-clock" size={20} color="#3B82F6" />
+                      </View>
+                      <Text style={styles.listLabel} numberOfLines={1}>Remind me on</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.listValue} numberOfLines={1}>
+                        {getReminderDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </Text>
+                      <Icon source="chevron-right" size={20} color={palette.muted} />
+                    </View>
+                  </Pressable>
+                  
+                  <DateTimePickerModal
+                    isVisible={showDatePicker}
+                    mode="date"
+                    date={getReminderDate()}
+                    onConfirm={(selectedDate) => {
+                      setShowDatePicker(false);
+                      updateSubData({ reminderCustomDate: selectedDate.toISOString() });
+                    }}
+                    onCancel={() => setShowDatePicker(false)}
+                    textColor={palette.text} // respects dark mode
+                  />
+                </>
+              )}
             </>
           )}
 

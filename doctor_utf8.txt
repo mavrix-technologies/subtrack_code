@@ -1,0 +1,243 @@
+﻿[1mreact-doctor[22m [2mv0.2.3[22m
+
+[32mΓ£ö[39m Select projects to scan [2mΓÇ║[22m subtrack-ai
+[2mScanning E:\Subscription Tracker...[22m
+
+
+
+  [31mΓ£ù[39m [31mreact-doctor/rn-no-raw-text                   [39m [90m├ù3[39m
+[90m      Raw "Cancel" outside a <Text> component ΓÇö this will crash on React Native[39m
+[90m      ΓåÆ Wrap text in a `<Text>` component: `<Text>{value}</Text>` ΓÇö raw strings outside `<Text>` crash on React Native[39m
+[90m      src/app/invoice/review.tsx:373[39m
+[90m      src/app/invoice/review.tsx:380[39m
+[90m      src/app/invoice/review.tsx:991[39m
+
+  [31mΓ£ù[39m [31mreact-doctor/effect-needs-cleanup[39m
+[90m      useEffect subscribes via `addEventListener(...)` but never returns a cleanup ΓÇö leaks the registration on every re-run and on unmount. Return a cleanup function that calls the matching remove/unsubscribe call[39m
+[90m      ΓåÆ Return a cleanup function that releases the subscription / timer: `return () => target.removeEventListener(name, handler)` for listeners, `return () => clearInterval(id)` / `clearTimeout(id)` for timers, or `return unsubscribe` if the subscribe call already returned one[39m
+[90m      src/components/ads/AppOpenAdManager.tsx:22[39m
+
+  [31mΓ£ù[39m [31mreact-doctor/only-export-components[39m
+[90m      Fast refresh only works when a file only exports components. Move non-component exports to a separate file.[39m
+[90m      ΓåÆ Move non-component exports out of files that export components.[39m
+[90m      src/components/BrandIcon.tsx:57[39m
+
+  [33mΓÜá[39m [33mdeslop/unused-file                            [39m [90m├ù86[39m
+[90m      Unused file ΓÇö not reachable from any entry point[39m
+[90m      ΓåÆ Delete the file if it is truly unreachable, or import it from an entry point.[39m
+[90m      scratch/test_parse.js[39m
+[90m      src/app/(tabs)/_layout.tsx[39m
+[90m      src/app/(tabs)/expenses.tsx[39m
+[90m      src/app/(tabs)/index.tsx[39m
+[90m      src/app/(tabs)/invoices.tsx[39m
+[90m      src/app/(tabs)/settings.tsx[39m
+[90m      src/app/(tabs)/subscriptions.tsx[39m
+[90m      src/app/_layout.tsx[39m
+[90m      src/app/add-expense.tsx[39m
+[90m      src/app/add.tsx[39m
+[90m      src/app/edit/[id].tsx[39m
+[90m      src/app/expense/[id].tsx[39m
+[90m      src/app/expense/edit/[id].tsx[39m
+[90m      src/app/expense/invoice/[id].tsx[39m
+[90m      src/app/friend/[id].tsx[39m
+[90m      src/app/friend/create.tsx[39m
+[90m      src/app/friends/index.tsx[39m
+[90m      src/app/invoice/[id].tsx[39m
+[90m      src/app/invoice/create.tsx[39m
+[90m      src/app/invoice/review.tsx[39m
+[90m      src/app/invoice/scan.tsx[39m
+[90m      src/app/legal/[page].tsx[39m
+[90m      src/app/login.tsx[39m
+[90m      src/app/subscription/[id].tsx[39m
+[90m      src/components/BrandIcon.tsx[39m
+[90m      src/components/ads/AppOpenAdManager.tsx[39m
+[90m      src/components/ads/HomeBannerAd.tsx[39m
+[90m      src/components/ads/HomeNativeAd.tsx[39m
+[90m      src/components/ads/InlineNativeAd.tsx[39m
+[90m      src/components/ads/StartupRewardedInterstitialAd.tsx[39m
+[90m      src/components/ads/mobileAdsModule.ts[39m
+[90m      src/components/ads/mobileAdsModule.web.ts[39m
+[90m      src/components/ads/rewardedAds.ts[39m
+[90m      src/components/common/SignaturePadModal.tsx[39m
+[90m      src/components/expense/ExpenseItem.tsx[39m
+[90m      src/components/expense/SplitExpenseEditor.tsx[39m
+[90m      src/components/expense/SplitFriendPickerStrip.tsx[39m
+[90m      src/components/messaging/HomeRemoteBanner.tsx[39m
+[90m      src/components/messaging/LegacyUpdateAlert.tsx[39m
+[90m      src/components/onboarding/AppOnboarding.tsx[39m
+[90m      src/constants/currencies.ts[39m
+[90m      src/constants/legal.ts[39m
+[90m      src/constants/subtrack-theme.ts[39m
+[90m      src/constants/transactionalEmail.ts[39m
+[90m      src/contexts/app-data.tsx[39m
+[90m      src/contexts/currency.tsx[39m
+[90m      src/contexts/theme.tsx[39m
+[90m      src/data/catalog.ts[39m
+[90m      src/data/dev-seed.ts[39m
+[90m      src/services/accountData.ts[39m
+[90m      src/services/analytics.ts[39m
+[90m      src/services/appleAuth.ts[39m
+[90m      src/services/auth.ts[39m
+[90m      src/services/crashReporting.ts[39m
+[90m      src/services/duplicateDetectionEngine.ts[39m
+[90m      src/services/expenseReminder.ts[39m
+[90m      src/services/expenseService.ts[39m
+[90m      src/services/firebase.ts[39m
+[90m      src/services/firestorePaths.ts[39m
+[90m      src/services/googleAuth.ts[39m
+[90m      src/services/googleMailScript.ts[39m
+[90m      src/services/inAppMessaging.ts[39m
+[90m      src/services/invoiceOcrService.ts[39m
+[90m      src/services/invoiceService.ts[39m
+[90m      src/services/invoiceShareEmail.ts[39m
+[90m      src/services/legacyMigration.ts[39m
+[90m      src/services/merchantIntelligence.ts[39m
+[90m      src/services/notifications.ts[39m
+[90m      src/services/offlineQueueService.ts[39m
+[90m      src/services/preferencesService.ts[39m
+[90m      src/services/splitFriendService.ts[39m
+[90m      src/services/subscriptions.ts[39m
+[90m      src/store/useExpenseStore.ts[39m
+[90m      src/store/useInvoiceStore.ts[39m
+[90m      src/store/useMerchantStore.ts[39m
+[90m      src/store/useScanStore.ts[39m
+[90m      src/store/useSplitFriendStore.ts[39m
+[90m      src/types/settings.ts[39m
+[90m      src/types/splitFriend.ts[39m
+[90m      src/types/subscription.ts[39m
+[90m      src/utils/ai-engine.ts[39m
+[90m      src/utils/calculations.ts[39m
+[90m      src/utils/dates.ts[39m
+[90m      src/utils/invoiceTemplates.ts[39m
+[90m      src/utils/splitFriendExpenses.ts[39m
+[90m      src/utils/validation.ts[39m
+
+  [33mΓÜá[39m [33mreact-doctor/no-derived-state                 [39m [90m├ù17[39m
+[90m      Avoid storing derived state. Compute "subtotalState" directly during render, optionally with `useMemo` if it's expensive.[39m
+[90m      ΓåÆ Compute derived state inline during render (or with useMemo if expensive) instead of mirroring it into useState via a useEffect. See https://react.dev/learn/you-might-not-need-an-effect#updating-state-based-on-props-or-state[39m
+[90m      src/app/invoice/review.tsx:125[39m
+[90m      src/app/invoice/review.tsx:130[39m
+[90m      src/app/invoice/review.tsx:139[39m
+[90m      src/app/invoice/review.tsx:145[39m
+[90m      src/app/friend/[id].tsx:50[39m
+[90m      src/app/friend/[id].tsx:51[39m
+[90m      src/app/friend/[id].tsx:52[39m
+[90m      src/app/invoice/create.tsx:73[39m
+[90m      src/app/invoice/create.tsx:74[39m
+[90m      src/app/invoice/create.tsx:75[39m
+[90m      src/app/invoice/create.tsx:78[39m
+[90m      src/app/invoice/[id].tsx:860[39m
+[90m      src/app/invoice/[id].tsx:861[39m
+[90m      src/app/invoice/[id].tsx:862[39m
+[90m      src/app/invoice/[id].tsx:863[39m
+[90m      src/app/invoice/[id].tsx:864[39m
+[90m      src/app/invoice/[id].tsx:865[39m
+
+  [33mΓÜá[39m [33mreact-doctor/no-tiny-text                     [39m [90m├ù7[39m
+[90m      Font size 11px is too small ΓÇö body text should be at least 12px for readability, 16px is ideal[39m
+[90m      ΓåÆ Use at least 12px for body content, 16px is ideal. Small text is hard to read, especially on high-DPI mobile screens[39m
+[90m      src/app/invoice/review.tsx:872[39m
+[90m      src/app/invoice/review.tsx:873[39m
+[90m      src/app/invoice/review.tsx:876[39m
+[90m      src/app/invoice/review.tsx:877[39m
+[90m      src/app/invoice/review.tsx:882[39m
+[90m      src/app/invoice/review.tsx:885[39m
+[90m      src/app/invoice/review.tsx:927[39m
+
+  [33mΓÜá[39m [33mreact-doctor/no-event-handler                 [39m [90m├ù6[39m
+[90m      Avoid using props and effects as an event handler. Instead, move the handler to the parent component.[39m
+[90m      ΓåÆ Move the side effect into the event handler that triggers it, instead of guarding on its state inside a useEffect. See https://react.dev/learn/you-might-not-need-an-effect#sharing-logic-between-event-handlers[39m
+[90m      src/components/ads/AppOpenAdManager.tsx:10[39m
+[90m      src/app/invoice/review.tsx:124[39m
+[90m      src/app/invoice/review.tsx:129[39m
+[90m      src/app/invoice/review.tsx:138[39m
+[90m      src/app/invoice/review.tsx:142[39m
+[90m      src/components/common/SignaturePadModal.tsx:78[39m
+
+  [33mΓÜá[39m [33mreact-doctor/no-pass-data-to-parent           [39m [90m├ù3[39m
+[90m      Avoid passing data to parents in an effect. Instead, fetch the data in the parent and pass it down to the child as a prop.[39m
+[90m      ΓåÆ Fetch the data in the parent and pass it to the child as a prop (or return it from the hook), instead of pushing it back up via a prop callback inside a useEffect. See https://react.dev/learn/you-might-not-need-an-effect#passing-data-to-the-parent[39m
+[90m      src/components/ads/AppOpenAdManager.tsx:18[39m
+[90m      src/components/ads/AppOpenAdManager.tsx:51[39m
+[90m      src/components/ads/AppOpenAdManager.tsx:62[39m
+
+  [33mΓÜá[39m [33mreact-doctor/no-array-index-key               [39m [90m├ù2[39m
+[90m      Array index in `key` doesn't uniquely identify the element ΓÇö re-renders may use stale state.[39m
+[90m      ΓåÆ Use a stable, data-derived `key` instead of the array index.[39m
+[90m      src/app/invoice/review.tsx:408[39m
+[90m      src/app/invoice/review.tsx:666[39m
+
+  [33mΓÜá[39m [33mreact-doctor/no-array-index-as-key            [39m [90m├ù2[39m
+[90m      Array index "idx" used as key ΓÇö causes bugs when list is reordered or filtered[39m
+[90m      ΓåÆ Use a stable unique identifier: `key={item.id}` or `key={item.slug}` ΓÇö index keys break on reorder/filter[39m
+[90m      src/app/invoice/review.tsx:408[39m
+[90m      src/app/invoice/review.tsx:666[39m
+
+  [33mΓÜá[39m [33mreact-doctor/rendering-hydration-mismatch-time[39m [90m├ù2[39m
+[90m      new Date() reachable from JSX renders differently on server vs client ΓÇö wrap in useEffect+useState (client-only) or add suppressHydrationWarning to the parent if intentional[39m
+[90m      ΓåÆ Wrap dynamic time/random values in useEffect+useState (client-only) or add suppressHydrationWarning to the parent if intentional[39m
+[90m      src/app/invoice/review.tsx:616[39m
+[90m      src/app/invoice/[id].tsx:807[39m
+
+  [33mΓÜá[39m [33mreact-doctor/no-initialize-state              [39m [90m├ù2[39m
+[90m      Avoid initializing state in an effect. Instead, initialize "campaign"'s `useState()` with "DEFAULT_UPDATE_ALERT". For SSR hydration, prefer `useSyncExternalStore()`.[39m
+[90m      ΓåÆ Pass the initial value directly to useState() instead of setting it from a mount-only useEffect. For SSR hydration, prefer useSyncExternalStore().[39m
+[90m      src/components/messaging/LegacyUpdateAlert.tsx:63[39m
+[90m      src/app/_layout.tsx:80[39m
+
+  [33mΓÜá[39m [33mreact-doctor/js-index-maps                    [39m [90m├ù2[39m
+[90m      array.find() in a loop is O(n*m) ΓÇö build a Map for O(1) lookups[39m
+[90m      ΓåÆ Build an index `Map` once outside the loop instead of `array.find(...)` inside it[39m
+[90m      src/services/merchantIntelligence.ts:109[39m
+[90m      src/services/merchantIntelligence.ts:124[39m
+
+  [33mΓÜá[39m [33mreact-doctor/jsx-no-constructed-context-values[39m
+[90m      Context `value` prop is constructed inline ΓÇö wrap with `useMemo`/`useCallback` or hoist a constant to avoid re-renders.[39m
+[90m      ΓåÆ Memoize the context value (`useMemo`) or hoist it outside the render.[39m
+[90m      src/contexts/currency.tsx:245[39m
+
+  [33mΓÜá[39m [33mreact-doctor/no-chain-state-updates[39m
+[90m      Avoid chaining state changes. When possible, update all relevant state simultaneously.[39m
+[90m      ΓåÆ Update all related state simultaneously inside the event handler that originally fires, instead of reacting to one state update in a useEffect that writes another state. See https://react.dev/learn/you-might-not-need-an-effect#chains-of-computations[39m
+[90m      src/app/add.tsx:76[39m
+
+  [33mΓÜá[39m [33mreact-doctor/no-adjust-state-on-prop-change[39m
+[90m      Avoid adjusting state when a prop changes. Instead, adjust the state directly during render, or refactor your state to avoid this need entirely.[39m
+[90m      ΓåÆ Adjust the state inline during render instead of via a useEffect, or refactor the state to avoid the need entirely. See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes[39m
+[90m      src/components/common/SignaturePadModal.tsx:80[39m
+
+  [33mΓÜá[39m [33mreact-doctor/exhaustive-deps[39m
+[90m      The ref value `authResetTimer.current` will likely have changed by the time this effect cleanup function runs. Copy it to a variable inside the hook callback and use that variable in cleanup.[39m
+[90m      ΓåÆ List every value the hook callback captures in its dependency array.[39m
+[90m      src/app/_layout.tsx:79[39m
+
+  [33mΓÜá[39m [33mreact-doctor/js-flatmap-filter[39m
+[90m      .map().filter(Boolean) iterates twice ΓÇö use .flatMap() to transform and filter in a single pass[39m
+[90m      ΓåÆ Use `.flatMap(item => condition ? [value] : [])` ΓÇö transforms and filters in a single pass instead of creating an intermediate array[39m
+[90m      scratch/test_parse.js:112[39m
+
+  [33mΓÜá[39m [33mreact-doctor/rn-no-dimensions-get[39m
+[90m      Dimensions.get() does not update on screen rotation or resize ΓÇö use useWindowDimensions() for reactive layout[39m
+[90m      ΓåÆ Use `const { width, height } = useWindowDimensions()` ΓÇö it updates reactively on rotation and resize[39m
+[90m      src/app/invoice/scan.tsx:31[39m
+
+  [33mΓÜá[39m [33mreact-doctor/js-tosorted-immutable[39m
+[90m      [...array].sort() ΓÇö use array.toSorted() for immutable sorting (ES2023)[39m
+[90m      ΓåÆ Use `array.toSorted()` (ES2023) instead of `[...array].sort()` for immutable sorting without the spread allocation[39m
+[90m      src/services/merchantIntelligence.ts:120[39m
+
+  [32mΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ[39m  [32m83[39m [2m/ 100[22m [32mGreat[39m
+  [32mΓöé Γùá Γùá Γöé[39m  [32mΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûê[39m[2mΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæ[22m
+  [32mΓöé  Γû╜  Γöé[39m  React Doctor [2m(www.react.doctor)[22m
+  [32mΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ[39m
+
+  [31m141 issues[39m [2macross 86/93 files  in 2.3s[22m
+[90m  Full diagnostics written to C:\Users\ASUS\AppData\Local\Temp\react-doctor-f80dc283-6a99-4295-976f-ea4715241bd5[39m
+
+  [1mΓåÆ Share your results:[22m [36mhttps://www.react.doctor/share?p=subtrack-ai&s=83&e=5&w=136&f=86[39m
+
+  [1mΓåÆ Catch these issues on every PR:[22m [36mhttps://react.review[39m
+  [2mReact Review is a GitHub App built on React Doctor, and it runs on each pull request,[22m
+  [2mposts new issues as inline review comments, and tracks your team's score over time.[22m
+
+

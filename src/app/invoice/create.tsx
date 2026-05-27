@@ -69,14 +69,17 @@ export default function CreateInvoiceScreen() {
   const [sigLabel, setSigLabel] = useState(brand.signatureLabel || 'Authorized Signature');
 
   // Sync local edits when brand loads from storage
-  React.useEffect(() => {
+  // Sync local edits when brand loads from storage
+  const [prevBrand, setPrevBrand] = useState(brand);
+  if (brand !== prevBrand) {
+    setPrevBrand(brand);
     setEditName(brand.businessName);
     setEditTag(brand.tagline);
     setEditPrefix(brand.filePrefix);
     setEditLogo(brand.logoUri);
     setEditSig(brand.signatureUri);
     setSigLabel(brand.signatureLabel || 'Authorized Signature');
-  }, [brand]);
+  }
 
   const pickBrandImage = async (type: 'logo' | 'signature') => {
     if (type === 'signature') {

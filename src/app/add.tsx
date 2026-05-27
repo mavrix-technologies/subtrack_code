@@ -1,4 +1,5 @@
-import { BrandIcon, POPULAR_APPS } from '@/components/BrandIcon';
+import { BrandIcon } from '@/components/BrandIcon';
+import { POPULAR_APPS } from '@/constants/brands';
 import { useAppData } from '@/contexts/app-data';
 import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';
@@ -8,7 +9,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Icon } from 'react-native-paper';
@@ -49,6 +50,8 @@ function getPaymentMethodIcon(method: string) {
 }
 
 export default function AddScreen() {
+  "use no memo";
+
   const { palette } = useTheme();
   const { currency } = useCurrency();
   const styles = useMemo(() => createStyles(palette), [palette]);
@@ -64,9 +67,10 @@ export default function AddScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [internetResults, setInternetResults] = useState<any[]>([]);
 
-  useEffect(() => {
-    if (searchQuery.length > 1) {
-      fetch(`https://autocomplete.clearbit.com/v1/companies/suggest?query=${searchQuery}`)
+  const handleSearchQueryChange = (val: string) => {
+    setSearchQuery(val);
+    if (val.length > 1) {
+      fetch(`https://autocomplete.clearbit.com/v1/companies/suggest?query=${val}`)
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) setInternetResults(data);
@@ -75,12 +79,25 @@ export default function AddScreen() {
     } else {
       setInternetResults([]);
     }
-  }, [searchQuery]);
+  };
   
   // Form State
   const [billingCycle, setBillingCycle] = useState('Monthly');
   const [paymentDate, setPaymentDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [paymentDateStr, setPaymentDateStr] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+
+  const handlePaymentDateStrChange = (val: string) => {
+    setPaymentDateStr(val);
+    const parsed = new Date(val);
+    if (!isNaN(parsed.getTime())) {
+      setPaymentDate(parsed);
+    }
+  };
+
+
 
   const [planDetails, setPlanDetails] = useState('Premium');
   const [paymentMethod, setPaymentMethod] = useState('UPI');
@@ -166,7 +183,11 @@ export default function AddScreen() {
       const json = await response.json();
       
       if (json.IsErroredOnProcessing || !json.ParsedResults || json.ParsedResults.length === 0) {
-        throw new Error('Could not parse text from image.');
+        Alert.alert('Scan Failed', 'Could not parse text from image.');
+        void trackEvent('magic_import_failed');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setIsScanning(false);
+        return;
       }
 
       const extractedText = json.ParsedResults[0].ParsedText || '';
@@ -217,6 +238,7 @@ export default function AddScreen() {
         const parsedDate = new Date(dateMatch[1]);
         if (!isNaN(parsedDate.getTime())) {
           setPaymentDate(parsedDate);
+          setPaymentDateStr(parsedDate.toISOString().split('T')[0]);
         }
       }
 
@@ -254,13 +276,13 @@ export default function AddScreen() {
         matched_app: Boolean(matchedApp),
         found_price: Boolean(foundPrice),
       });
+      setIsScanning(false);
 
     } catch (err: any) {
       console.error(err);
       Alert.alert('Scan Failed', err.message || 'We could not detect a subscription from this screenshot.');
       void trackEvent('magic_import_failed');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
       setIsScanning(false);
     }
   };
@@ -421,24 +443,53 @@ export default function AddScreen() {
             <View style={styles.labelContainer}>
               <Text style={styles.labelText}>Next payment date</Text>
             </View>
-            <Pressable style={styles.selectContainer} onPress={() => setShowDatePicker(!showDatePicker)}>
-              <Text style={styles.selectText}>
-                {paymentDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-              </Text>
-              <Icon source="calendar-month-outline" size={20} color={palette.muted} />
-            </Pressable>
-            {showDatePicker && (
-              <View style={{ marginTop: 8, backgroundColor: palette.surface, borderRadius: 16, overflow: 'hidden' }}>
-                <DateTimePicker
-                  value={paymentDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  onChange={(event, date) => {
-                    if (Platform.OS === 'android') setShowDatePicker(false);
-                    if (date) setPaymentDate(date);
-                  }}
+            {Platform.OS === 'web' ? (
+              <View style={[styles.selectContainer, { paddingHorizontal: 0 }]}>
+                <TextInput
+                  value={paymentDateStr}
+                  onChangeText={handlePaymentDateStrChange}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={palette.muted}
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    color: palette.text,
+                    paddingHorizontal: 16,
+                    height: '100%',
+                    backgroundColor: 'transparent',
+                    borderWidth: 0,
+                    outlineStyle: 'none',
+                  } as any}
                 />
+                <View style={{ marginRight: 16 }}>
+                  <Icon source="calendar-month-outline" size={20} color={palette.muted} />
+                </View>
               </View>
+            ) : (
+              <>
+                <Pressable style={styles.selectContainer} onPress={() => setShowDatePicker(!showDatePicker)}>
+                  <Text style={styles.selectText}>
+                    {paymentDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </Text>
+                  <Icon source="calendar-month-outline" size={20} color={palette.muted} />
+                </Pressable>
+                {showDatePicker && (
+                  <View style={{ marginTop: 8, backgroundColor: palette.surface, borderRadius: 16, overflow: 'hidden' }}>
+                    <DateTimePicker
+                      value={paymentDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                      onChange={(event, date) => {
+                        if (Platform.OS === 'android') setShowDatePicker(false);
+                        if (date) {
+                          setPaymentDate(date);
+                          setPaymentDateStr(date.toISOString().split('T')[0]);
+                        }
+                      }}
+                    />
+                  </View>
+                )}
+              </>
             )}
           </View>
 
@@ -546,12 +597,12 @@ export default function AddScreen() {
                   placeholder="Search apps..."
                   placeholderTextColor={palette.muted}
                   value={searchQuery}
-                  onChangeText={setSearchQuery}
+                  onChangeText={handleSearchQueryChange}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
                 {searchQuery.length > 0 && (
-                  <Pressable onPress={() => setSearchQuery('')}>
+                  <Pressable onPress={() => { setSearchQuery(''); setInternetResults([]); }}>
                     <Icon source="close-circle" size={20} color={palette.muted} />
                   </Pressable>
                 )}

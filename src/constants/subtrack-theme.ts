@@ -38,21 +38,18 @@ export const darkPalette = {
   danger: '#EF4444',
 };
 
-// Legacy fallback
-export const palette = lightPalette;
-
 export const subtrackTheme = {
   ...MD3LightTheme,
   roundness: 16,
   colors: {
     ...MD3LightTheme.colors,
-    primary: palette.primary,
-    secondary: palette.navBackground,
-    tertiary: palette.success,
+    primary: lightPalette.primary,
+    secondary: lightPalette.navBackground,
+    tertiary: lightPalette.success,
     background: lightPalette.background,
-    surface: palette.surface,
+    surface: lightPalette.surface,
     surfaceVariant: '#FFFFFF',
-    outline: palette.line,
-    error: palette.danger,
+    outline: lightPalette.line,
+    error: lightPalette.danger,
   },
 };

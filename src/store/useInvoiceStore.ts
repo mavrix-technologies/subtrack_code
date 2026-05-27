@@ -7,6 +7,9 @@ export type InvoiceItem = {
   description?: string;
   price: number;
   qty: number;
+  mrp?: number;
+  taxAmount?: number;
+  totalPrice?: number;
 };
 
 export type PaymentRecord = {
@@ -44,6 +47,17 @@ export type Invoice = {
   dueDate?: string;
   payments: PaymentRecord[];
   createdAt?: any;
+  // OCR Scanner additions
+  merchantId?: string;
+  imageUrl?: string;
+  imageHash?: string;
+  duplicateScore?: number;
+  gstNumber?: string;
+  taxType?: 'cgst_sgst' | 'igst' | 'vat' | 'tax';
+  currency?: string;
+  category?: string;
+  isDraft?: boolean;
+  paymentMethod?: string;
 };
 
 interface InvoiceState {

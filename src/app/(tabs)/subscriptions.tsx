@@ -1,5 +1,6 @@
 import { InlineNativeAd } from '@/components/ads/InlineNativeAd';
-import { BrandIcon, POPULAR_APPS } from '@/components/BrandIcon';
+import { BrandIcon } from '@/components/BrandIcon';
+import { POPULAR_APPS } from '@/constants/brands';
 import { useAppData } from '@/contexts/app-data';
 import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';

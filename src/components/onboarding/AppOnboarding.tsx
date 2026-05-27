@@ -37,6 +37,8 @@ const slides = [
 ];
 
 export function AppOnboarding() {
+  "use no memo";
+
   const { status, user } = useAppData();
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();

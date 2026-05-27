@@ -1,6 +1,7 @@
 import { subtrackTheme } from '@/constants/subtrack-theme';
 import { getGoogleMobileAdsModule } from '@/components/ads/mobileAdsModule';
 import { StartupRewardedInterstitialAd } from '@/components/ads/StartupRewardedInterstitialAd';
+import { AppOpenAdManager } from '@/components/ads/AppOpenAdManager';
 import { LegacyUpdateAlert } from '@/components/messaging/LegacyUpdateAlert';
 import { AppOnboarding } from '@/components/onboarding/AppOnboarding';
 import { AppDataProvider, useAppData } from '@/contexts/app-data';
@@ -14,8 +15,8 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { router, Stack, usePathname, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useRef, useState } from 'react';
-import { AppState, Platform, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { AppState, Platform, Text, View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperProvider } from 'react-native-paper';
 
@@ -43,13 +44,17 @@ function AuthGate() {
 }
 
 function AppLockGate({ children }: { children: React.ReactNode }) {
+  "use no memo";
+
   const [unlocked, setUnlocked] = useState(false);
-  const [isLockEnabled, setIsLockEnabled] = useState(false);
+  const lockState = useState<boolean | undefined>(undefined);
+  const isLockEnabled = lockState[0];
+  const setIsLockEnabled = lockState[1];
   const appState = useRef(AppState.currentState);
   const isAuthenticating = useRef(false);
   const authResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const authenticate = async () => {
+  const authenticate = useCallback(async () => {
     if (isAuthenticating.current) return;
     const enabled = await AsyncStorage.getItem('biometric_lock_enabled');
     if (enabled !== 'true') {
@@ -66,14 +71,19 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
         disableDeviceFallback: false,
       });
       if (auth.success) setUnlocked(true);
-    } finally {
+      if (authResetTimer.current) clearTimeout(authResetTimer.current);
+      authResetTimer.current = setTimeout(() => {
+        isAuthenticating.current = false;
+        authResetTimer.current = null;
+      }, 500);
+    } catch {
       if (authResetTimer.current) clearTimeout(authResetTimer.current);
       authResetTimer.current = setTimeout(() => {
         isAuthenticating.current = false;
         authResetTimer.current = null;
       }, 500);
     }
-  };
+  }, [setIsLockEnabled]);
 
   useEffect(() => {
     authenticate();
@@ -81,11 +91,20 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
       if (appState.current === 'background' && nextAppState === 'active') authenticate();
       appState.current = nextAppState;
     });
+    const timerId = authResetTimer.current;
     return () => {
       subscription.remove();
-      if (authResetTimer.current) clearTimeout(authResetTimer.current);
+      if (timerId) clearTimeout(timerId);
     };
-  }, []);
+  }, [authenticate]);
+
+  if (isLockEnabled === undefined) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#111827', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
+    );
+  }
 
   if (!unlocked && isLockEnabled) {
     return (
@@ -200,6 +219,7 @@ export default function RootLayout() {
                 <InvoiceBrandProvider>
                   <AppLockGate>
                     <AdsInitializer />
+                    <AppOpenAdManager />
                     <StartupRewardedInterstitialAd />
                     <AnalyticsInitializer />
                     <AuthGate />

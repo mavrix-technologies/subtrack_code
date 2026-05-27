@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -65,23 +65,23 @@ export default function SignaturePadModal({
   onLabelChange,
   initialSignature,
 }: SignaturePadModalProps) {
+  "use no memo";
+
   const { height } = useWindowDimensions();
   const [paths, setPaths] = useState<StrokePath[]>([]);
   const [currentPath, setCurrentPath] = useState<StrokePath>([]);
   const [uploadedImage, setUploadedImage] = useState<string | null>(initialSignature || null);
 
   // When the modal becomes visible, restore the saved signature
-  const prevVisibleRef = useRef(false);
-  useEffect(() => {
-    if (visible && !prevVisibleRef.current) {
+  const [prevVisible, setPrevVisible] = useState({ value: visible });
+  if (visible !== prevVisible.value) {
+    setPrevVisible({ value: visible });
+    if (visible && initialSignature) {
       // Modal just opened — restore initialSignature if provided
-      if (initialSignature) {
-        setUploadedImage(initialSignature);
-        setPaths([]); // Clear any leftover drawn paths
-      }
+      setUploadedImage(initialSignature);
+      setPaths([]); // Clear any leftover drawn paths
     }
-    prevVisibleRef.current = visible;
-  }, [visible, initialSignature]);
+  }
 
   // Use refs for values read inside PanResponder callbacks — avoids stale closures
   const livePathRef = useRef<StrokePath>([]);
@@ -89,7 +89,7 @@ export default function SignaturePadModal({
   // canvasSizeRef is updated via onLayout and read in PanResponder — no stale closure
   const canvasSizeRef = useRef({ width: 0, height: 0 });
 
-  const panResponder = useRef(
+  const panResponder = useMemo(() =>
     PanResponder.create({
       // Capture the touch immediately so parent scroll/modal-drag can't steal it
       onStartShouldSetPanResponder: () => true,
@@ -143,8 +143,9 @@ export default function SignaturePadModal({
 
       // Don't let the termination request succeed while drawing
       onPanResponderTerminationRequest: () => !isDrawingRef.current,
-    })
-  ).current;
+    }),
+    []
+  );
 
   const pathToD = (pts: StrokePath) => {
     if (!pts.length) return '';
@@ -210,6 +211,13 @@ export default function SignaturePadModal({
     } catch {
       Alert.alert('Error', 'Failed to upload image.');
     }
+  }, []);
+
+  const handleCanvasLayout = useCallback((e: any) => {
+    canvasSizeRef.current = {
+      width: e.nativeEvent.layout.width,
+      height: e.nativeEvent.layout.height,
+    };
   }, []);
 
   const hasContent = paths.length > 0 || currentPath.length > 0;
@@ -279,12 +287,7 @@ export default function SignaturePadModal({
           {/* Drawing surface */}
           <View
             style={styles.canvas}
-            onLayout={e => {
-              canvasSizeRef.current = {
-                width: e.nativeEvent.layout.width,
-                height: e.nativeEvent.layout.height,
-              };
-            }}
+            onLayout={handleCanvasLayout}
           >
             {uploadedImage ? (
               // Check if it's an SVG data URI or a regular image

@@ -76,10 +76,6 @@ export function getMissingFirebaseKeys() {
   return getRequiredFirebaseConfig().missingKeys;
 }
 
-export function isFirebaseConfigured() {
-  return getMissingFirebaseKeys().length === 0;
-}
-
 export function getFirebaseBundle() {
   const { config, missingKeys } = getRequiredFirebaseConfig();
   if (missingKeys.length > 0) return null;

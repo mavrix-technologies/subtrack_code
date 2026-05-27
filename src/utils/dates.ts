@@ -6,17 +6,13 @@ const displayDateFormatter = new Intl.DateTimeFormat('en-IN', {
   day: 'numeric',
   year: 'numeric',
 });
-const monthYearFormatter = new Intl.DateTimeFormat('en-IN', {
-  month: 'long',
-  year: 'numeric',
-});
 const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
   month: 'short',
   year: 'numeric',
 });
 
-export function toIsoDate(date: Date) {
+function toIsoDate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -51,10 +47,6 @@ export function formatDisplayDate(value: string) {
   return displayDateFormatter.format(date);
 }
 
-export function formatMonthYear(date: Date) {
-  return monthYearFormatter.format(date);
-}
-
 export function formatShortDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -77,7 +69,7 @@ export function daysUntil(value: string, from = new Date()) {
   return daysBetween(from, date);
 }
 
-export function addBillingCycle(date: Date, billingCycle: BillingCycle) {
+function addBillingCycle(date: Date, billingCycle: BillingCycle) {
   const next = new Date(date);
   if (billingCycle === 'monthly') {
     next.setMonth(next.getMonth() + 1);
@@ -111,11 +103,4 @@ export function getRelativeRenewalLabel(value: string, from = new Date()) {
   if (delta === 0) return 'Today';
   if (delta === 1) return 'Tomorrow';
   return `In ${delta} days`;
-}
-
-export function getMonthDays(date: Date) {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const count = new Date(year, month + 1, 0).getDate();
-  return Array.from({ length: count }, (_, index) => new Date(year, month, index + 1));
 }

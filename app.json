@@ -4,11 +4,11 @@
     "slug": "subtrack-ai",
     "version": "1.2.1",
     "orientation": "portrait",
-    "icon": "./assets/SubTrack_Assets/SubTrack_Icon.png",
+    "icon": "./assets/SubTrack_Assets/SubTrack_App_Icon.png",
     "scheme": "subtrackai",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/SubTrack_Assets/SubTrack_Icon.png",
+      "icon": "./assets/SubTrack_Assets/SubTrack_App_Icon.png",
       "bundleIdentifier": "com.subtrackapp.ios",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
@@ -17,13 +17,14 @@
       }
     },
     "android": {
-      "icon": "./assets/SubTrack_Assets/SubTrack_Android_Icon.png",
+      "icon": "./assets/SubTrack_Assets/SubTrack_App_Icon.png",
       "package": "com.subtrackapp.android",
       "versionCode": 112,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/SubTrack_Assets/SubTrack_Adaptive_Foreground.png",
-        "backgroundColor": "#0F172A"
+        "monochromeImage": "./assets/SubTrack_Assets/SubTrack_Monochrome.png",
+        "backgroundColor": "#FFFFFF"
       },
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
@@ -93,11 +94,10 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0F172A",
-          "android": {
-            "image": "./assets/SubTrack_Assets/SubTrack_Icon.png",
-            "imageWidth": 200
-          }
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/SubTrack_Assets/SubTrack_Splash_Logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
         }
       ],
       "expo-font",

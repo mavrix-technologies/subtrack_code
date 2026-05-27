@@ -46,14 +46,6 @@ export function bootstrapAuth(
   return { status: 'ready', unsubscribe };
 }
 
-/** @deprecated use bootstrapAuth */
-export function bootstrapAnonymousAuth(
-  onUser: (user: AppUser | null) => void,
-  onError: (error: Error) => void
-): AuthBootstrapResult {
-  return bootstrapAuth(onUser, onError);
-}
-
 export async function signInWithEmail(email: string, password: string): Promise<AppUser> {
   const firebase = getFirebaseBundle();
   if (!firebase) throw new Error('Firebase is not configured');

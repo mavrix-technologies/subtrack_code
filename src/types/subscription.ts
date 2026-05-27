@@ -8,7 +8,7 @@ export type SubscriptionCategory =
   | 'fitness'
   | 'others';
 
-export type SubscriptionIcon = string;
+type SubscriptionIcon = string;
 
 export type Subscription = {
   id: string;

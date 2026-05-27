@@ -1,4 +1,4 @@
-export type LegalSection = {
+type LegalSection = {
   title: string;
   body: string[];
 };

@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 const CRASH_LOG_KEY = '@subtrack_crash_logs';
 const MAX_LOGS = 20;
 
-export type CrashLog = {
+type CrashLog = {
   message: string;
   stack?: string;
   fatal?: boolean;
@@ -26,7 +26,7 @@ function toCrashLog(error: unknown, fatal?: boolean): CrashLog {
   };
 }
 
-export async function recordCrash(error: unknown, fatal?: boolean) {
+async function recordCrash(error: unknown, fatal?: boolean) {
   const nextLog = toCrashLog(error, fatal);
   try {
     const raw = await AsyncStorage.getItem(CRASH_LOG_KEY);
