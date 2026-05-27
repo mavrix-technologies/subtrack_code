@@ -42,11 +42,19 @@ Rules:
 `.trim();
 
 function cleanJsonText(text: string) {
-  return text
+  const cleaned = text
     .trim()
     .replace(/^```(?:json)?/i, '')
     .replace(/```$/i, '')
     .trim();
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return cleaned.slice(firstBrace, lastBrace + 1);
+  }
+
+  return cleaned;
 }
 
 function coerceString(value: unknown, fallback: string) {
@@ -176,5 +184,10 @@ export async function parseReminderWithGemini(input: ReminderParseRequest): Prom
 
   if (!text) throw new Error('Gemini returned an empty response.');
 
-  return normalizeReminder(JSON.parse(cleanJsonText(text)), source);
+  const parsed = JSON.parse(cleanJsonText(text));
+  const reminder = parsed && typeof parsed === 'object' && 'reminder' in parsed
+    ? (parsed as { reminder: unknown }).reminder
+    : parsed;
+
+  return normalizeReminder(reminder, source);
 }
