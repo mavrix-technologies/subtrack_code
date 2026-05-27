@@ -1,0 +1,15 @@
+node_modules
+.expo
+dist
+web-build
+scratch
+.git
+.agents
+.claude
+.kiro
+.windsurf
+*.log
+doctor_output.txt
+doctor_utf8.txt
+eslint_errors.txt
+screen.png
