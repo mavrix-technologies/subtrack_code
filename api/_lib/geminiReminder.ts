@@ -90,6 +90,77 @@ function coerceSmartReminders(value: unknown) {
     .slice(0, 5);
 }
 
+function fallbackReminder(input: ReminderParseRequest, source: ReminderSource): ReminderDraft {
+  const text = input.text || 'Reminder';
+  const lower = text.toLowerCase();
+  const date = new Date();
+
+  if (/\b(tomorrow|kal)\b/.test(lower)) {
+    date.setDate(date.getDate() + 1);
+  }
+
+  const timeMatch = lower.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje)?\b/);
+  let hours = 9;
+  let minutes = 0;
+
+  if (timeMatch) {
+    hours = Number(timeMatch[1]);
+    minutes = Number(timeMatch[2] || 0);
+    if (timeMatch[3] === 'pm' && hours < 12) hours += 12;
+    if (timeMatch[3] === 'am' && hours === 12) hours = 0;
+    if (timeMatch[3] === 'baje' && hours < 8) hours += 12;
+  }
+
+  date.setHours(Math.min(hours, 23), Math.min(minutes, 59), 0, 0);
+
+  if (/flight|airport|boarding/.test(lower)) {
+    return {
+      title: 'Flight reminder',
+      type: 'flight',
+      category: 'travel',
+      datetime: date.toISOString(),
+      location: /airport/.test(lower) ? 'Airport' : null,
+      notes: text,
+      repeat: 'none',
+      source,
+      confidence: 0.62,
+      smartReminders: [
+        { label: 'Check in', minutesBefore: 1440 },
+        { label: 'Leave for airport', minutesBefore: 180 },
+        { label: 'Boarding soon', minutesBefore: 60 },
+      ],
+    };
+  }
+
+  if (/meeting|call|meet/.test(lower)) {
+    return {
+      title: lower.includes('call') ? 'Call reminder' : 'Meeting',
+      type: 'meeting',
+      category: 'work',
+      datetime: date.toISOString(),
+      location: null,
+      notes: text,
+      repeat: 'none',
+      source,
+      confidence: 0.62,
+      smartReminders: [{ label: 'Before meeting', minutesBefore: 30 }],
+    };
+  }
+
+  return {
+    title: 'Reminder',
+    type: 'task',
+    category: 'personal',
+    datetime: date.toISOString(),
+    location: null,
+    notes: text,
+    repeat: 'none',
+    source,
+    confidence: 0.5,
+    smartReminders: [{ label: 'At time', minutesBefore: 0 }],
+  };
+}
+
 function normalizeReminder(raw: unknown, source: ReminderSource): ReminderDraft {
   const value = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
   const datetime = coerceNullableString(value.datetime ?? value.dateTime);
@@ -184,10 +255,15 @@ export async function parseReminderWithGemini(input: ReminderParseRequest): Prom
 
   if (!text) throw new Error('Gemini returned an empty response.');
 
-  const parsed = JSON.parse(cleanJsonText(text));
-  const reminder = parsed && typeof parsed === 'object' && 'reminder' in parsed
-    ? (parsed as { reminder: unknown }).reminder
-    : parsed;
+  try {
+    const parsed = JSON.parse(cleanJsonText(text));
+    const reminder = parsed && typeof parsed === 'object' && 'reminder' in parsed
+      ? (parsed as { reminder: unknown }).reminder
+      : parsed;
 
-  return normalizeReminder(reminder, source);
+    return normalizeReminder(reminder, source);
+  } catch (error) {
+    console.warn('Gemini returned non-JSON reminder output:', text.slice(0, 500), error);
+    return fallbackReminder(input, source);
+  }
 }
