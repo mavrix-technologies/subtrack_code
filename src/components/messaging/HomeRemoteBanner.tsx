@@ -6,7 +6,7 @@ import {
 } from '@/services/inAppMessaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Linking,
   Modal,
@@ -35,7 +35,7 @@ export function HomeRemoteBanner() {
   const { palette } = useTheme();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const styles = createStyles(palette);
   const scrollRef = useRef<ScrollView>(null);
   const [campaign, setCampaign] = useState<HomeBannerCampaign | null>(null);
   const [dismissed, setDismissed] = useState(false);
@@ -46,10 +46,17 @@ export function HomeRemoteBanner() {
     let cancelled = false;
 
     if (!user) {
-      setCampaign(null);
-      setDismissed(false);
-      setIsReady(false);
-      return;
+      const cleanupTask = InteractionManager.runAfterInteractions(() => {
+        if (cancelled) return;
+        setCampaign(null);
+        setDismissed(false);
+        setIsReady(false);
+      });
+
+      return () => {
+        cancelled = true;
+        cleanupTask.cancel();
+      };
     }
 
     const unsubscribe = listenToHomeBannerCampaign(
@@ -174,7 +181,7 @@ export function HomeRemoteBanner() {
                   <Image source={{ uri: slide.imageUrl }} style={styles.image} resizeMode="cover" />
                 ) : (
                   <View style={[styles.iconHero, { backgroundColor: slide.accentColor || buttonColor }]}>
-                    <Icon source={slide.icon || 'sparkles'} size={38} color="#FFFFFF" />
+                    <Icon source={slide.icon || 'creation'} size={38} color="#FFFFFF" />
                   </View>
                 )}
 

@@ -1,5 +1,6 @@
 import {
   addDoc,
+  deleteDoc,
   onSnapshot,
   orderBy,
   query,
@@ -57,4 +58,11 @@ export async function updateReminder(userId: string, reminderId: string, updates
     ...updates,
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function deleteReminder(userId: string, reminderId: string) {
+  const firebase = getFirebaseBundle();
+  if (!firebase) throw new Error('Firebase is not configured');
+
+  await deleteDoc(userReminderDoc(firebase.db, userId, reminderId));
 }

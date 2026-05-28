@@ -3,6 +3,7 @@ import { getGoogleMobileAdsModule } from '@/components/ads/mobileAdsModule';
 import { StartupRewardedInterstitialAd } from '@/components/ads/StartupRewardedInterstitialAd';
 import { AppOpenAdManager } from '@/components/ads/AppOpenAdManager';
 import { LegacyUpdateAlert } from '@/components/messaging/LegacyUpdateAlert';
+import { AlarmOverlay } from '@/components/AlarmOverlay';
 import { AppOnboarding } from '@/components/onboarding/AppOnboarding';
 import { AppDataProvider, useAppData } from '@/contexts/app-data';
 import { CurrencyProvider, InvoiceBrandProvider } from '@/contexts/currency';
@@ -226,6 +227,7 @@ export default function RootLayout() {
                     <ThemedStack />
                     <AppOnboarding />
                     <LegacyUpdateAlert />
+                    <AlarmOverlay />
                   </AppLockGate>
                 </InvoiceBrandProvider>
               </ThemeProvider>

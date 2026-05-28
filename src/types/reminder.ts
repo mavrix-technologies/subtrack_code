@@ -23,6 +23,7 @@ export type ReminderType =
 export type ReminderRepeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export type ReminderSource = 'text' | 'image' | 'pdf' | 'voice' | 'manual' | 'fallback';
+export type ReminderAlertMode = 'sound' | 'alarm';
 
 export type ReminderLead = {
   label: string;
@@ -38,6 +39,7 @@ export type ReminderDraft = {
   notes: string | null;
   repeat: ReminderRepeat;
   source: ReminderSource;
+  alertMode?: ReminderAlertMode;
   confidence: number;
   smartReminders: ReminderLead[];
 };

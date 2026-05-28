@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { Pressable, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Icon } from 'react-native-paper';
 import Animated, {
     interpolate,
@@ -17,7 +18,7 @@ import { useTheme } from '@/contexts/theme';
 
 const tabItems: Record<string, { icon: string; selectedIcon: string; label: string }> = {
   index:         { icon: 'view-dashboard-outline', selectedIcon: 'view-dashboard',  label: 'Home' },
-  assistant:     { icon: 'sparkles',               selectedIcon: 'sparkles',        label: 'AI' },
+  assistant:     { icon: 'robot-outline',       selectedIcon: 'robot',            label: 'AI' },
   subscriptions: { icon: 'repeat',                 selectedIcon: 'repeat',          label: 'Subs' },
   expenses:      { icon: 'wallet-outline',          selectedIcon: 'wallet',          label: 'Expenses' },
   invoices:      { icon: 'receipt-text-outline',    selectedIcon: 'receipt-text',    label: 'Invoices' },
@@ -93,11 +94,23 @@ function TabButton({
     >
       <Animated.View style={{ alignItems: 'center', gap: 3, minWidth: 0 }}>
         <Animated.View style={iconAnimStyle}>
-          <Icon
-            source={focused ? item.selectedIcon : item.icon}
-            size={26}
-            color={focused ? activeColor : inactiveColor}
-          />
+          {item.icon === 'assistant-custom' ? (
+            <Image
+              source={require('../../../assets/SubTrack_Assets/SubTrack_Android_Icon.png')}
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 6,
+                opacity: focused ? 1 : 0.75,
+              }}
+            />
+          ) : (
+            <Icon
+              source={focused ? item.selectedIcon : item.icon}
+              size={26}
+              color={focused ? activeColor : inactiveColor}
+            />
+          )}
         </Animated.View>
         <Animated.Text
           style={[
@@ -121,6 +134,9 @@ function TabButton({
 function AppTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { palette } = useTheme();
+  const isAssistantTab = state.routes[state.index]?.name === 'assistant';
+
+  if (isAssistantTab) return null;
 
   return (
     <View
@@ -175,7 +191,7 @@ export default function TabsLayout() {
       tabBar={(props) => <AppTabBar {...props} />}
     >
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="assistant" />
+      <Tabs.Screen name="assistant" options={{ tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="subscriptions" />
       <Tabs.Screen name="expenses" />
       <Tabs.Screen name="invoices" />

@@ -23,6 +23,7 @@ function formatPrice(sub: Subscription): string {
 const CHANNEL_RENEWAL = 'renewal-reminders';
 const CHANNEL_TEST    = 'test-alerts';
 const CHANNEL_AI_REMINDER = 'ai-reminders';
+const CHANNEL_AI_ALARM = 'ai-reminder-alarms';
 
 // ── Singleton initialiser ─────────────────────────────────────────────────────
 
@@ -76,6 +77,18 @@ async function getNotifications() {
         lightColor:           '#F97316',
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         bypassDnd:            false,
+        showBadge:            true,
+      });
+
+      await Notifications.setNotificationChannelAsync(CHANNEL_AI_ALARM, {
+        name:                 'AI Reminder Alarms',
+        description:          'High-priority AI reminder alarms — wakes the screen like a real alarm',
+        importance:           Notifications.AndroidImportance.MAX,
+        sound:                'default',
+        vibrationPattern:     [0, 500, 200, 500, 200, 900],
+        lightColor:           '#EF4444',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd:            true,   // ← cuts through Do-Not-Disturb
         showBadge:            true,
       });
     }
@@ -240,27 +253,55 @@ export async function scheduleReminderNotifications(
     : [{ label: 'Reminder', minutesBefore: 0 }];
 
   const notificationIds: string[] = [];
+  const isAlarm = reminder.alertMode === 'alarm';
+  const channelId = isAlarm ? CHANNEL_AI_ALARM : CHANNEL_AI_REMINDER;
 
   for (const lead of leads) {
     const triggerDate = new Date(eventDate);
     triggerDate.setMinutes(triggerDate.getMinutes() - Math.max(0, lead.minutesBefore));
     if (triggerDate <= new Date()) continue;
 
+    // Alarm-specific extras: full-screen intent pops over lock screen on Android,
+    // categoryIdentifier maps to a registered category on iOS.
+    const alarmExtras = isAlarm
+      ? {
+          categoryIdentifier: 'ALARM',
+          // Android full-screen intent — wakes screen even when locked/muted
+          ...((!IS_EXPO_GO) ? { fullScreenNotification: true } : {}),
+        }
+      : {};
+
     const id = await N.scheduleNotificationAsync({
       content: {
-        title: lead.minutesBefore > 0 ? `${reminder.title} soon` : reminder.title,
+        title: isAlarm
+          ? `⏰ Alarm: ${reminder.title}`
+          : lead.minutesBefore > 0 ? `${reminder.title} soon` : reminder.title,
         body: reminder.location
           ? `${lead.label} • ${reminder.location}`
           : lead.label,
-        data: { reminderId: reminder.id, type: 'ai_reminder', category: reminder.category },
+        data: {
+          reminderId: reminder.id,
+          type: isAlarm ? 'ai_reminder_alarm' : 'ai_reminder',
+          category: reminder.category,
+        },
         sound: true,
         badge: 1,
+        ...alarmExtras,
       },
-      trigger: makeDateTrigger(N, triggerDate, CHANNEL_AI_REMINDER),
+      trigger: makeDateTrigger(N, triggerDate, channelId),
     });
 
     notificationIds.push(id);
   }
 
   return notificationIds;
+}
+
+export async function cancelReminderNotifications(notificationIds?: string[]) {
+  if (!notificationIds?.length) return;
+  const N = await getNotifications();
+
+  await Promise.all(
+    notificationIds.map((id) => N.cancelScheduledNotificationAsync(id).catch(() => undefined))
+  );
 }

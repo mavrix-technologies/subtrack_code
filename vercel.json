@@ -5,12 +5,20 @@
     "api/reminders/*.ts": {
       "maxDuration": 30,
       "memory": 1024
+    },
+    "api/assistant/*.ts": {
+      "maxDuration": 30,
+      "memory": 1024
     }
   },
   "rewrites": [
     {
       "source": "/reminders/:path*",
       "destination": "/api/reminders/:path*"
+    },
+    {
+      "source": "/assistant/:path*",
+      "destination": "/api/assistant/:path*"
     }
   ]
 }

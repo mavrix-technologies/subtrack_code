@@ -132,22 +132,28 @@ export async function parseReminderWithAi(input: ParseInput): Promise<ReminderDr
   if (!AI_ASSISTANT_API_URL) return fallbackParse(input);
 
   const endpoint = input.imageBase64 ? '/reminders/parse-document' : '/reminders/parse';
-  const response = await fetch(`${AI_ASSISTANT_API_URL.replace(/\/$/, '')}${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text: input.text,
-      source: input.source || 'text',
-      imageBase64: input.imageBase64,
-      mimeType: input.mimeType,
-      localeHints: ['en', 'hi', 'gu', 'hinglish'],
-    }),
-  });
+  try {
+    const response = await fetch(`${AI_ASSISTANT_API_URL.replace(/\/$/, '')}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: input.text,
+        source: input.source || 'text',
+        imageBase64: input.imageBase64,
+        mimeType: input.mimeType,
+        localeHints: ['en', 'hi', 'gu', 'hinglish'],
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`AI parser failed (${response.status})`);
+    if (!response.ok) {
+      console.warn(`AI parser API failed with status ${response.status}. Falling back to local.`);
+      return fallbackParse(input);
+    }
+
+    const json = await response.json();
+    return normalizeDraft(json.reminder || json, input);
+  } catch (error) {
+    console.warn('AI parser API network error, falling back to local:', error);
+    return fallbackParse(input);
   }
-
-  const json = await response.json();
-  return normalizeDraft(json.reminder || json, input);
 }
