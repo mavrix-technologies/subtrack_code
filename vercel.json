@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm run build:web",
-  "outputDirectory": "dist",
+  "buildCommand": "npm run build:website",
+  "outputDirectory": "website",
   "functions": {
     "api/reminders/*.ts": {
       "maxDuration": 30,
