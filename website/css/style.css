@@ -451,6 +451,7 @@ header.scrolled .nav-wrapper {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   pointer-events: none;
 }
 
@@ -1851,48 +1852,20 @@ header.scrolled .nav-wrapper {
   height: 85px;
 }
 
-.qr-download-container {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  background: rgba(0, 0, 0, 0.4);
-  padding: 24px;
+.cta-brand-card {
+  width: min(430px, 40vw);
+  aspect-ratio: 1024 / 500;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
 }
 
-.qr-code-mock {
-  width: 100px;
-  height: 100px;
-  background: #FFF;
-  padding: 6px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.qr-code-mock svg {
+.cta-brand-card img {
+  display: block;
   width: 100%;
   height: 100%;
-}
-
-.qr-text {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.qr-text span:first-child {
-  font-size: 14px;
-  font-weight: 700;
-  color: #FFF;
-}
-
-.qr-text span:last-child {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  max-width: 180px;
+  object-fit: cover;
 }
 
 /* --- Footer --- */
@@ -2065,9 +2038,10 @@ footer {
     justify-content: center;
   }
   
-  .qr-download-container {
+  .cta-brand-card {
     justify-content: center;
-    width: 100%;
+    width: min(520px, 100%);
+    margin: 0 auto;
   }
   
   .guides-container {

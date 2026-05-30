@@ -1262,22 +1262,25 @@
 }
 
 .cta-box {
-  background: radial-gradient(circle at top right, rgba(249, 115, 22, 0.15), rgba(9, 10, 15, 0.95)), var(--color-bg-card);
+  background: linear-gradient(90deg, rgba(9, 10, 15, 0.98) 0%, rgba(9, 10, 15, 0.9) 46%, rgba(9, 10, 15, 0.18) 100%), var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: 80px 60px;
-  display: grid;
-  grid-template-columns: 1fr auto;
+  min-height: 360px;
+  display: flex;
   align-items: center;
-  gap: 60px;
   position: relative;
   box-shadow: var(--shadow-lg), var(--shadow-orange);
+  overflow: hidden;
 }
 
 .cta-text {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  max-width: 590px;
+  position: relative;
+  z-index: 2;
 }
 
 .cta-title {
@@ -1290,7 +1293,7 @@
 .cta-desc {
   font-size: 16px;
   color: var(--color-text-secondary);
-  max-width: 600px;
+  max-width: 520px;
 }
 
 .cta-buttons {
@@ -1300,53 +1303,25 @@
   flex-wrap: wrap;
 }
 
-.cta-play-badge {
-  width: 220px;
-  height: 85px;
+.cta-store-link {
+  width: fit-content;
+  min-height: 48px;
+  padding: 14px 22px;
 }
 
-.qr-download-container {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  background: rgba(0, 0, 0, 0.4);
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
+.cta-bg-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
 }
 
-.qr-code-mock {
-  width: 100px;
-  height: 100px;
-  background: #FFF;
-  padding: 6px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.qr-code-mock svg {
+.cta-bg-art img {
+  display: block;
   width: 100%;
   height: 100%;
-}
-
-.qr-text {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.qr-text span:first-child {
-  font-size: 14px;
-  font-weight: 700;
-  color: #FFF;
-}
-
-.qr-text span:last-child {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  max-width: 180px;
+  object-fit: cover;
+  object-position: right center;
+  opacity: 0.82;
 }
 
 /* --- Footer --- */
@@ -1505,10 +1480,9 @@ footer {
   }
   
   .cta-box {
-    grid-template-columns: 1fr;
     text-align: center;
     padding: 50px 30px;
-    gap: 40px;
+    justify-content: center;
   }
   
   .cta-desc {
@@ -1518,10 +1492,10 @@ footer {
   .cta-buttons {
     justify-content: center;
   }
-  
-  .qr-download-container {
-    justify-content: center;
-    width: 100%;
+
+  .cta-bg-art img {
+    object-position: center;
+    opacity: 0.34;
   }
   
   .guides-container {
