@@ -1,6 +1,7 @@
 {
   "buildCommand": "npm run build:website",
   "outputDirectory": "website",
+  "cleanUrls": true,
   "functions": {
     "api/reminders/*.ts": {
       "maxDuration": 30,
