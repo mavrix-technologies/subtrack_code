@@ -30,7 +30,7 @@ jobs:
     env:
       CI: 1
       EXPO_NO_TELEMETRY: 1
-      EAS_BUILD_PROFILE: ${{ github.event.inputs.profile || 'production' }}
+      EAS_BUILD_PROFILE: ${{ inputs.profile || 'production' }}
 
     steps:
       - name: Checkout repository
@@ -75,16 +75,24 @@ jobs:
       - name: Build iOS IPA
         id: build
         run: |
+          set -euo pipefail
           eas build --platform ios --profile "$EAS_BUILD_PROFILE" --non-interactive --wait --json > eas-build-result.json
           IPA_URL="$(node <<'NODE'
           const fs = require('fs');
           const result = JSON.parse(fs.readFileSync('eas-build-result.json', 'utf8'));
           const builds = Array.isArray(result) ? result : [result];
           const build = builds.find((item) => String(item.platform).toLowerCase() === 'ios') || builds[0];
-          const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl || build?.artifactUrl;
+          const url =
+            build?.artifacts?.buildUrl ||
+            build?.artifacts?.applicationArchiveUrl ||
+            build?.artifacts?.url ||
+            build?.artifactUrl ||
+            build?.buildUrl ||
+            build?.applicationArchiveUrl;
 
           if (!url) {
             console.error('Could not find an IPA artifact URL in eas-build-result.json.');
+            console.error(JSON.stringify(result, null, 2));
             process.exit(1);
           }
 
