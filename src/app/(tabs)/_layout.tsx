@@ -1,31 +1,22 @@
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
-import { Tabs } from 'expo-router';
-import { useEffect } from 'react';
-import { Pressable, View } from 'react-native';
-import { Image } from 'expo-image';
+import { router, Tabs } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-paper';
-import Animated, {
-    interpolate,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/contexts/theme';
 
 const tabItems: Record<string, { icon: string; selectedIcon: string; label: string }> = {
   index:         { icon: 'view-dashboard-outline', selectedIcon: 'view-dashboard',  label: 'Home' },
-  assistant:     { icon: 'robot-outline',       selectedIcon: 'robot',            label: 'AI' },
+  assistant:     { icon: 'bell-ring-outline',       selectedIcon: 'bell-ring',      label: 'AI Remind' },
   subscriptions: { icon: 'repeat',                 selectedIcon: 'repeat',          label: 'Subs' },
   expenses:      { icon: 'wallet-outline',          selectedIcon: 'wallet',          label: 'Expenses' },
   invoices:      { icon: 'receipt-text-outline',    selectedIcon: 'receipt-text',    label: 'Invoices' },
   settings:      { icon: 'cog-outline',             selectedIcon: 'cog',             label: 'Settings' },
 };
 
-const tabs = ['index', 'assistant', 'subscriptions', 'expenses', 'invoices', 'settings'];
+const tabs = ['index', 'subscriptions', 'expenses', 'invoices', 'assistant'];
 
 function TabButton({
   route,
@@ -41,32 +32,6 @@ function TabButton({
   "use no memo";
 
   const item = tabItems[route.name];
-  const scale = useSharedValue(focused ? 1 : 0.88);
-  const translateY = useSharedValue(focused ? -2 : 0);
-  const opacity = useSharedValue(focused ? 1 : 0.75);
-
-  useEffect(() => {
-    if (focused) {
-      scale.set(withSpring(1.15, { damping: 12, stiffness: 200, mass: 0.6 }));
-      translateY.set(withSpring(-3, { damping: 14, stiffness: 220 }));
-      opacity.set(withTiming(1, { duration: 150 }));
-    } else {
-      scale.set(withSpring(1, { damping: 14, stiffness: 200 }));
-      translateY.set(withSpring(0, { damping: 14, stiffness: 220 }));
-      opacity.set(withTiming(0.75, { duration: 150 }));
-    }
-  }, [focused, opacity, scale, translateY]);
-
-  const iconAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value },
-      { translateY: translateY.value },
-    ],
-  }));
-
-  const labelAnimStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scale.value, [1, 1.15], [0.75, 1]),
-  }));
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -86,57 +51,53 @@ function TabButton({
       style={{
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 4,
+        paddingVertical: 2,
         paddingHorizontal: 4,
         flex: 1,
         minWidth: 0,
       }}
     >
-      <Animated.View style={{ alignItems: 'center', gap: 3, minWidth: 0 }}>
-        <Animated.View style={iconAnimStyle}>
-          {item.icon === 'assistant-custom' ? (
-            <Image
-              source={require('../../../assets/SubTrack_Assets/SubTrack_Android_Icon.png')}
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: 6,
-                opacity: focused ? 1 : 0.75,
-              }}
-            />
-          ) : (
-            <Icon
-              source={focused ? item.selectedIcon : item.icon}
-              size={26}
-              color={focused ? activeColor : inactiveColor}
-            />
-          )}
-        </Animated.View>
-        <Animated.Text
-          style={[
-            labelAnimStyle,
-            {
-              fontSize: 11,
-              fontWeight: focused ? '700' : '500',
-              color: focused ? activeColor : inactiveColor,
-              letterSpacing: 0,
-            },
-          ]}
+      <View style={{ alignItems: 'center', gap: 3, minWidth: 0 }}>
+        <View
+          style={{
+            minWidth: 42,
+            height: 30,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon
+            source={focused ? item.selectedIcon : item.icon}
+            size={24}
+            color={focused ? activeColor : inactiveColor}
+          />
+        </View>
+        <Text
+          style={{
+            fontSize: 10,
+            fontWeight: focused ? '800' : '600',
+            color: focused ? activeColor : inactiveColor,
+            letterSpacing: 0,
+          }}
           numberOfLines={1}
         >
           {item.label}
-        </Animated.Text>
-      </Animated.View>
+        </Text>
+      </View>
     </Pressable>
   );
 }
 
-function AppTabBar({ state, navigation }: BottomTabBarProps) {
+function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { palette } = useTheme();
-  const isAssistantTab = state.routes[state.index]?.name === 'assistant';
+  const focusedRoute = state.routes[state.index];
+  const focusedOptions = descriptors[focusedRoute.key]?.options;
+  const focusedTabBarStyle = StyleSheet.flatten(focusedOptions?.tabBarStyle as any);
 
-  if (isAssistantTab) return null;
+  if (focusedTabBarStyle?.display === 'none') {
+    return null;
+  }
 
   return (
     <View
@@ -152,8 +113,8 @@ function AppTabBar({ state, navigation }: BottomTabBarProps) {
         alignItems: 'center',
         justifyContent: 'space-around',
         paddingHorizontal: 10,
-        paddingTop: 14,
-        paddingBottom: Math.max(14, insets.bottom + 4),
+        paddingTop: 10,
+        paddingBottom: Math.max(12, insets.bottom + 4),
         boxShadow: '0 -10px 25px -5px rgba(0, 0, 0, 0.25)',
       }}
     >
@@ -177,11 +138,32 @@ function AppTabBar({ state, navigation }: BottomTabBarProps) {
 
 export default function TabsLayout() {
   const { palette } = useTheme();
+  const headerIconButton = {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+  const headerIconButtonNeutral = {
+    ...headerIconButton,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+  };
+  const headerIconButtonPrimary = {
+    ...headerIconButton,
+    backgroundColor: palette.primary,
+  };
 
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: palette.background },
+        headerTitleStyle: { color: palette.text, fontWeight: '700' },
+        headerTintColor: palette.text,
         /** Same background as app to avoid a flash between tab panels */
         sceneStyle: { backgroundColor: palette.background },
         /** Keep tab scenes mounted so switching tabs feels instant, not blank-then-paint */
@@ -190,12 +172,57 @@ export default function TabsLayout() {
       }}
       tabBar={(props) => <AppTabBar {...props} />}
     >
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="assistant" options={{ tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="subscriptions" />
-      <Tabs.Screen name="expenses" />
-      <Tabs.Screen name="invoices" />
-      <Tabs.Screen name="settings" />
+      <Tabs.Screen
+        name="index"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen name="assistant" options={{ title: 'AI Remind', tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen
+        name="subscriptions"
+        options={{
+          title: 'Subscriptions',
+          headerRight: () => (
+            <Pressable style={[headerIconButtonPrimary, { marginRight: 10 }]} onPress={() => router.push('/add')}>
+              <Icon source="plus" size={20} color="#FFFFFF" />
+            </Pressable>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="expenses"
+        options={{
+          title: 'Expenses',
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: 10 }}>
+              <Pressable style={headerIconButtonNeutral} onPress={() => router.push('/friends')}>
+                <Icon source="account-heart-outline" size={22} color={palette.text} />
+              </Pressable>
+              <Pressable style={headerIconButtonPrimary} onPress={() => router.push('/add-expense')}>
+                <Icon source="plus" size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="invoices"
+        options={{
+          title: 'Invoices',
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: 10 }}>
+              <Pressable style={headerIconButtonNeutral} onPress={() => router.push('/invoice/scan')}>
+                <Icon source="camera-outline" size={21} color={palette.text} />
+              </Pressable>
+              <Pressable style={headerIconButtonPrimary} onPress={() => router.push('/invoice/create')}>
+                <Icon source="plus" size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     </Tabs>
   );
 }

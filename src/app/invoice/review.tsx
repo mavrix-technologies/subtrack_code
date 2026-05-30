@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, Button } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -27,6 +27,7 @@ export default function InvoiceReviewScreen() {
   "use no memo";
 
   const { palette } = useTheme();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user } = useAppData();
   const S = React.useMemo(() => createStyles(palette), [palette]);
@@ -313,22 +314,22 @@ export default function InvoiceReviewScreen() {
     }
   };
 
+  React.useEffect(() => {
+    navigation.setOptions({
+      title: 'Review Invoice',
+      headerRight: () => (
+        <Pressable onPress={() => handleSaveInvoice('draft')} style={S.headerDraftButton}>
+          <Text style={[S.headerDraftText, { color: palette.primary }]}>Save Draft</Text>
+        </Pressable>
+      ),
+    });
+  }, [S.headerDraftButton, S.headerDraftText, handleSaveInvoice, navigation, palette.primary]);
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={S.root}
     >
-      {/* Header */}
-      <View style={[S.header, { paddingTop: insets.top }]}>
-        <Pressable onPress={() => router.back()} style={S.iconBtn}>
-          <Icon source="arrow-left" size={24} color={palette.text} />
-        </Pressable>
-        <Text style={[S.headerTitle, { color: palette.text }]}>Review Invoice</Text>
-        <Pressable onPress={() => handleSaveInvoice('draft')} style={S.textBtn}>
-          <Text style={{ color: palette.primary, fontWeight: '600' }}>Save Draft</Text>
-        </Pressable>
-      </View>
-
       <ScrollView contentContainerStyle={S.scrollContainer} showsVerticalScrollIndicator={false}>
         
         {/* Alerts & Insights Section */}
@@ -1007,25 +1008,13 @@ const createStyles = (palette: any) =>
       flex: 1,
       backgroundColor: palette.background,
     },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingBottom: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: palette.border,
-    },
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-    },
-    iconBtn: {
-      padding: 8,
-    },
-    textBtn: {
+    headerDraftButton: {
       paddingHorizontal: 12,
       paddingVertical: 6,
+    },
+    headerDraftText: {
+      fontSize: 14,
+      fontWeight: '700',
     },
     scrollContainer: {
       padding: 16,

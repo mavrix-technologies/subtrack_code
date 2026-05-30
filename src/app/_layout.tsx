@@ -202,6 +202,8 @@ function ThemedStack() {
         <Stack.Screen name="expense/edit/[id]"    options={{ title: 'Edit Expense' }} />
         <Stack.Screen name="expense/invoice/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="invoice/create"       options={{ title: 'New Invoice' }} />
+        <Stack.Screen name="invoice/scan"         options={{ title: 'Scan Invoice' }} />
+        <Stack.Screen name="invoice/review"       options={{ title: 'Review Invoice' }} />
         <Stack.Screen name="invoice/[id]"         options={{ headerShown: false }} />
         <Stack.Screen name="legal/[page]"         options={{ title: 'Legal' }} />
       </Stack>

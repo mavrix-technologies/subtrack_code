@@ -51,10 +51,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useNavigation } from 'expo-router';
 
 const EXAMPLES = [
-  'kal meeting hai 12 baje',
-  'mom ko 8 baje call karna',
-  'netflix renew 5 june',
-  'Tomorrow medicine 9 PM remind me',
+  'Remind me to pay Netflix on June 5',
+  'Call mom tomorrow at 8 PM',
+  'Medicine reminder every day at 9 PM',
+  'Create a bill reminder for Friday',
 ];
 
 const REPEAT_OPTIONS: { value: ReminderRepeat; label: string }[] = [
@@ -165,12 +165,14 @@ export default function AssistantScreen() {
   const styles = createStyles(palette, isDark);
   const router = useRouter();
   const navigation = useNavigation();
+  const keyboardAvoidingBehavior = Platform.OS === 'ios' ? 'padding' : 'height';
+  const keyboardVerticalOffset = Platform.OS === 'ios' ? insets.top + 52 : 0;
 
   const [input, setInput] = useState('');
   const [chatMessages, setChatMessages] = useState<(AssistantChatMessage & { savedReminder?: ReminderDraft & { id?: string } })[]>([
     {
       role: 'assistant',
-      text: 'Tell me what to remember, ask a question, or tap + for manual, image, and voice tools.',
+      text: 'Tell me what to remember, or ask a question.',
     },
   ]);
   const [draft, setDraft] = useState<ReminderDraft | null>(null);
@@ -390,7 +392,7 @@ export default function AssistantScreen() {
     setChatMessages([
       {
         role: 'assistant',
-        text: 'Tell me what to remember, ask a question, or tap + for manual, image, and voice tools.',
+        text: 'Tell me what to remember, or ask a question.',
       },
     ]);
     setDraft(null);
@@ -526,7 +528,7 @@ export default function AssistantScreen() {
     updateDraft({ smartReminders: smartReminders.length ? smartReminders : [{ label: 'At time', minutesBefore: 0 }] });
   };
 
-  const parseText = async (text = input) => {
+  const parseText = async (text = input, source: 'text' = 'text') => {
     const trimmed = text.trim();
     if (!trimmed) return;
     const history = chatMessages.slice(-8);
@@ -542,8 +544,8 @@ export default function AssistantScreen() {
     try {
       const result = await sendAssistantChat({ message: trimmed, history }, userApiKey || undefined);
       if (result.intent === 'reminder') {
-        const nextDraft = result.reminder || await parseReminderWithAi({ text: trimmed, source: 'text' });
-        applyDraft(nextDraft);
+        const nextDraft = result.reminder || await parseReminderWithAi({ text: trimmed, source });
+        applyDraft({ ...nextDraft, source });
       }
 
       const replyMsg = { role: 'assistant', text: result.reply } as const;
@@ -738,49 +740,43 @@ export default function AssistantScreen() {
 
   useEffect(() => {
     navigation.setOptions({
-      headerShown: false,
-    });
-  }, [navigation]);
-
-  return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
-    >
-      {/* Custom Fixed Header */}
-      <View style={[styles.customHeader, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.customHeaderLeft}>
-          <IconButton
-            icon="menu"
-            iconColor={palette.text}
-            size={24}
-            onPress={() => toggleSidebar(true)}
-            style={styles.customHeaderButton}
-          />
-          <Text variant="titleMedium" style={styles.customHeaderTitle}>
-            SubTrack AI (Beta)
-          </Text>
-        </View>
-        <View style={styles.customHeaderRight}>
-          {userApiKey && (
+      headerShown: true,
+      title: 'AI Remind',
+      headerLeft: () => (
+        <IconButton
+          icon="menu"
+          iconColor={palette.text}
+          size={24}
+          onPress={() => toggleSidebar(true)}
+        />
+      ),
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {userApiKey ? (
             <IconButton
               icon="chat-plus-outline"
               iconColor={palette.text}
               size={22}
               onPress={handleNewChat}
-              style={styles.customHeaderButton}
             />
-          )}
+          ) : null}
           <IconButton
             icon="home-outline"
             iconColor={palette.text}
             size={22}
             onPress={() => router.push('/(tabs)')}
-            style={styles.customHeaderButton}
           />
         </View>
-      </View>
+      ),
+    });
+  }, [handleNewChat, navigation, palette.text, router, toggleSidebar, userApiKey]);
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={keyboardAvoidingBehavior}
+      keyboardVerticalOffset={keyboardVerticalOffset}
+    >
       {/* Main Content Area */}
       {!hasCheckedKey ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -906,6 +902,7 @@ export default function AssistantScreen() {
           <ScrollView
             ref={scrollRef}
             style={styles.chatScroll}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             contentContainerStyle={[
               styles.chatScrollContent,
               isWelcomeState && { justifyContent: 'center' },
@@ -919,21 +916,28 @@ export default function AssistantScreen() {
               <Surface style={styles.logoCircle} mode="flat">
                 <Image
                   source={require('../../../assets/SubTrack_Assets/SubTrack_Android_Icon.png')}
-                  style={{ width: 56, height: 56, borderRadius: 14 }}
+                  style={{ width: 34, height: 34, borderRadius: 9 }}
                 />
               </Surface>
-              <Text variant="headlineMedium" style={styles.welcomeTitle}>
-                SubTrack AI (Beta)
-              </Text>
-              <Text variant="bodyLarge" style={styles.welcomeSubtitle}>
-                How can I help you today?
-              </Text>
+              <View style={styles.welcomeCopy}>
+                <Text variant="headlineSmall" style={styles.welcomeTitle}>
+                  AI Remind
+                </Text>
+                <Text variant="bodyMedium" style={styles.welcomeSubtitle}>
+                  Create reminders from natural language.
+                </Text>
+              </View>
             </View>
 
             <View style={styles.suggestionSection}>
-              <Text variant="labelLarge" style={styles.sectionHeading}>
-                Try saying:
-              </Text>
+              <View style={styles.suggestionHeaderRow}>
+                <Text variant="labelLarge" style={styles.sectionHeading}>
+                  Try saying
+                </Text>
+                <Text variant="labelSmall" style={styles.suggestionHint}>
+                  Tap to start
+                </Text>
+              </View>
               <View style={styles.suggestionGrid}>
                 {EXAMPLES.map((example) => (
                   <Pressable
@@ -945,10 +949,13 @@ export default function AssistantScreen() {
                     android_ripple={{ color: palette.primary + '22' }}
                     onPress={() => parseText(example)}
                   >
-                    <Icon source="lightbulb-outline" size={20} color={palette.primary} />
+                    <View style={styles.suggestionIconBox}>
+                      <Icon source="bell-outline" size={18} color={palette.primary} />
+                    </View>
                     <Text variant="bodyMedium" style={styles.suggestionText} numberOfLines={2}>
-                      {`"${example}"`}
+                      {example}
                     </Text>
+                    <Icon source="chevron-right" size={18} color={palette.muted} />
                   </Pressable>
                 ))}
               </View>
@@ -1240,20 +1247,6 @@ export default function AssistantScreen() {
               </View>
               <Text variant="labelSmall" style={styles.toolTileLabel}>Image</Text>
             </Pressable>
-
-            <Pressable
-              style={styles.toolTile}
-              disabled={loading}
-              onPress={() => {
-                setToolsOpen(false);
-                Alert.alert('Voice reminders', 'Voice input is ready for the next build phase.');
-              }}
-            >
-              <View style={[styles.toolIconCircle, { backgroundColor: '#3B82F618' }]}>
-                <Icon source="microphone-outline" size={22} color="#3B82F6" />
-              </View>
-              <Text variant="labelSmall" style={styles.toolTileLabel}>Voice</Text>
-            </Pressable>
           </View>
         )}
 
@@ -1271,19 +1264,21 @@ export default function AssistantScreen() {
             style={styles.composerPlusButton}
             onPress={() => setToolsOpen((current) => !current)}
           />
-          <RNTextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Message Mavrix..."
-            placeholderTextColor={palette.muted}
-            multiline
-            style={styles.chatInput}
-            onFocus={() => {
-              setTimeout(() => {
-                scrollRef.current?.scrollToEnd({ animated: true });
-              }, 150);
-            }}
-          />
+          <View style={styles.inputShell}>
+            <RNTextInput
+              value={input}
+              onChangeText={setInput}
+              placeholder="Message AI Remind..."
+              placeholderTextColor={palette.muted}
+              multiline
+              style={styles.chatInput}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollRef.current?.scrollToEnd({ animated: true });
+                }, 150);
+              }}
+            />
+          </View>
           <IconButton
             icon="arrow-up"
             mode="contained"
@@ -1776,71 +1771,95 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
   },
   welcomeContainer: {
     width: '100%',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 20,
-    gap: 28,
+    alignItems: 'stretch',
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    gap: 22,
   },
   welcomeHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+    paddingHorizontal: 4,
   },
   logoCircle: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     backgroundColor: palette.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: palette.border,
-    boxShadow: isDark ? '0 8px 24px rgba(0, 0, 0, 0.4)' : '0 8px 24px rgba(0, 0, 0, 0.08)',
+    boxShadow: isDark ? '0 8px 20px rgba(0, 0, 0, 0.28)' : '0 8px 20px rgba(15, 23, 42, 0.06)',
+  },
+  welcomeCopy: {
+    flex: 1,
+    gap: 3,
   },
   welcomeTitle: {
     color: palette.text,
     fontWeight: '800',
-    fontSize: 26,
-    letterSpacing: -0.5,
+    fontSize: 24,
+    letterSpacing: 0,
   },
   welcomeSubtitle: {
     color: palette.muted,
-    textAlign: 'center',
-    fontSize: 15,
+    fontSize: 13.5,
+    lineHeight: 19,
   },
   suggestionSection: {
     width: '100%',
-    gap: 12,
+    gap: 10,
+  },
+  suggestionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
   sectionHeading: {
     color: palette.text,
-    fontWeight: '700',
+    fontWeight: '800',
     opacity: 0.85,
     fontSize: 14,
-    paddingLeft: 4,
+  },
+  suggestionHint: {
+    color: palette.muted,
+    fontWeight: '700',
+    fontSize: 11,
   },
   suggestionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   suggestionCard: {
-    flexGrow: 1,
-    flexBasis: '46%',
+    width: '100%',
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: palette.surface,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: palette.border,
-    padding: 14,
-    minHeight: 88,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+    boxShadow: isDark ? '0 4px 14px rgba(0, 0, 0, 0.18)' : '0 4px 14px rgba(15, 23, 42, 0.04)',
+  },
+  suggestionIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)',
+    backgroundColor: palette.primary + '14',
   },
   suggestionText: {
+    flex: 1,
     color: palette.text,
-    fontWeight: '600',
-    fontSize: 12.5,
-    lineHeight: 16,
+    fontWeight: '700',
+    fontSize: 13.5,
+    lineHeight: 18,
   },
   messageRow: {
     flexDirection: 'row',
@@ -2053,18 +2072,29 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
     height: 38,
     borderRadius: 19,
   },
+  inputShell: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 42,
+    maxHeight: 116,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 21,
+    paddingLeft: 14,
+    paddingRight: 5,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   chatInput: {
     flex: 1,
     minWidth: 0,
-    maxHeight: 112,
-    minHeight: 40,
-    backgroundColor: palette.surface,
+    maxHeight: 104,
+    minHeight: 34,
     color: palette.text,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 6,
     fontSize: 15,
     textAlignVertical: 'center',
   },

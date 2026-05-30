@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- SEO Meta Tags -->
+  <title>SubTrack — Master Your Subscriptions & Billing</title>
+  <meta name="description" content="A clean, privacy-first subscription tracker powered by Google Gemini. Parse receipts instantly, configure high-importance renewal alarms, and export PDF invoices.">
+  <meta name="keywords" content="subscription tracker, subscription manager, expenses tracker, expense optimizer, gemini ai, invoice generator, renewal reminders, android alarm">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="assets/SubTrack_App_Icon.png">
+  
+  <!-- Stylesheets -->
+  <link rel="preload" as="image" href="assets/home-page-hero.jpeg" fetchpriority="high">
+  <style>
+    :root{--color-primary:#F97316;--color-primary-dark:#EA580C;--color-primary-light:#FF9D5C;--color-primary-glow:rgba(249,115,22,.15);--color-bg-dark:#090A0F;--color-bg-card:rgba(22,24,35,.85);--color-border:rgba(255,255,255,.08);--color-text-primary:#F9FAFB;--color-text-secondary:#9CA3AF;--color-blue:#5C7CFA;--font-heading:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--font-body:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--radius-md:16px;--radius-full:9999px;--shadow-lg:0 16px 40px rgba(0,0,0,.8);--shadow-orange:0 0 30px rgba(249,115,22,.3)}
+    *{box-sizing:border-box;margin:0;padding:0}html,body{background:#090A0F;color:#F9FAFB;font-family:var(--font-body);font-size:16px;line-height:1.6;overflow-x:hidden;scroll-behavior:smooth}a{color:inherit;text-decoration:none}.container{width:100%;max-width:1280px;margin:0 auto;padding:0 24px}.icon{width:1.1em;height:1.1em;display:inline-block;flex:0 0 auto;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none}
+    header{position:fixed;top:0;left:0;width:100%;z-index:1000;background:rgba(9,10,15,.8);backdrop-filter:blur(12px);border-bottom:1px solid transparent}.nav-wrapper{display:flex;justify-content:space-between;align-items:center;height:80px}.logo{display:flex;align-items:center;gap:12px;font-family:var(--font-heading);font-weight:800;font-size:22px;letter-spacing:0;background:linear-gradient(135deg,#fff 60%,var(--color-primary-light));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.logo img{width:40px;height:40px;border-radius:10px}.nav-links{display:flex;align-items:center;gap:32px}.nav-links a{font-size:14px;font-weight:500;color:var(--color-text-secondary)}.nav-cta{display:flex;align-items:center;gap:16px}.menu-btn{display:none;color:var(--color-text-primary);cursor:pointer}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:var(--radius-md);font-size:14px;font-weight:600;cursor:pointer}.btn-primary{background:var(--color-primary);color:#111827;box-shadow:0 4px 15px rgba(249,115,22,.3)}.btn-secondary{background:rgba(255,255,255,.05);color:var(--color-text-primary);border:1px solid var(--color-border)}
+    .hero{position:relative;padding:180px 0 100px;min-height:100vh;display:flex;align-items:center;overflow:hidden}.hero .container{display:grid;grid-template-columns:1.2fr .8fr;align-items:center;gap:60px;position:relative;z-index:2}.hero-content{display:flex;flex-direction:column;gap:24px}.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;background:var(--color-primary-glow);border:1px solid rgba(249,115,22,.3);color:var(--color-primary-light);border-radius:var(--radius-full);font-size:12px;font-weight:600;letter-spacing:0;text-transform:uppercase;align-self:flex-start}.badge-ai{background:rgba(92,124,250,.1);border-color:rgba(92,124,250,.3);color:#93B0FF}.hero-title{font-family:var(--font-heading);font-size:clamp(40px,5vw,64px);font-weight:900;line-height:1.1;letter-spacing:0}.hero-title span{color:var(--color-primary-light)}.hero-desc{font-size:clamp(16px,1.2vw,20px);color:var(--color-text-secondary);max-width:580px}.hero-actions,.download-badges{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.download-badges{gap:12px;margin-top:24px}.play-store-badge{display:inline-flex;align-items:center;width:194px;height:75px;border-radius:8px}.play-store-badge img{display:block;width:100%;height:auto}
+    .hero-visual{display:flex;justify-content:center;align-items:center;position:relative}.device-container{position:relative;width:320px;height:640px;border-radius:40px;background:#000;padding:12px;box-shadow:var(--shadow-lg),var(--shadow-orange);border:4px solid #2C2D35}.device-screen{position:relative;width:100%;height:100%;border-radius:30px;overflow:hidden;background:#0F0F0F}.device-screen img{width:100%;height:100%;object-fit:cover;pointer-events:none}.device-camera-dot{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:10px;height:10px;background:#111;border-radius:50%;z-index:200}.floating-hud{position:absolute;background:rgba(18,20,29,.85);border:1px solid var(--color-border);padding:12px 18px;border-radius:var(--radius-md);display:flex;align-items:center;gap:12px;z-index:5}.hud-1{top:15%;left:-20%}.hud-2{bottom:20%;right:-25%}
+    @media (max-width:1024px){.hero .container{grid-template-columns:1fr;text-align:center;gap:50px}.badge{align-self:center}.hero-desc{margin:0 auto}.hero-actions,.download-badges{justify-content:center}.hero-visual{order:-1}}
+    @media (max-width:768px){.nav-links,.nav-cta .btn{display:none}.menu-btn{display:block}.hero{padding-top:104px}.hero-content{gap:18px}.hero-title{font-size:38px}.hero-visual{order:0}.device-container{width:220px;height:440px;border-radius:32px;padding:10px}.device-screen{border-radius:24px}.floating-hud{display:none}.play-store-badge{width:182px;height:70px}}
+  </style>
+  <link rel="preload" href="css/style.noncritical.min.css?v=2.7.4" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="css/style.noncritical.min.css?v=2.7.4"></noscript>
+</head>
+<body>
+
+  <!-- Custom Cursor Overlay -->
+  <div class="custom-cursor" id="custom-cursor"></div>
+
+  <!-- Header / Navigation -->
+  <header id="header">
+    <div class="container nav-wrapper">
+      <a href="#" class="logo">
+        <img src="assets/SubTrack_App_Icon.small.png" alt="SubTrack Logo" width="96" height="96">
+        <span>SubTrack</span>
+      </a>
+      
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#guides">Guides</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://play.google.com/store/apps/details?id=com.subtrackapp.android&pcampaignid=web_share" target="_blank" rel="noopener noreferrer">Google Play</a>
+      </nav>
+      
+      <div class="nav-cta">
+        <a href="https://play.google.com/store/apps/details?id=com.subtrackapp.android&pcampaignid=web_share" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Get App</a>
+        <div class="menu-btn"><i data-lucide="menu"></i></div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <div class="hero-glow-1"></div>
+    <div class="hero-glow-2"></div>
+    
+    <div class="container">
+      <div class="hero-content">
+        <div class="badge badge-ai">
+          <i data-lucide="sparkles"></i> Powered by Gemini AI
+        </div>
+        <h1 class="hero-title">
+          Master Your Subscriptions.<br>
+          <span>Save Money Smarter.</span>
+        </h1>
+        <p class="hero-desc">
+          Track all your recurring expenses, parse bill details instantly using Gemini AI, and configure high-importance renewal alarms that bypass Do Not Disturb so you never pay for an unused service again.
+        </p>
+        
+        <div class="hero-actions">
+          <a href="#download" class="btn btn-primary"><i data-lucide="download"></i> Get SubTrack</a>
+          <a href="#how-it-works" class="btn btn-secondary">Explore Features <i data-lucide="arrow-right"></i></a>
+        </div>
+        
+        <div class="download-badges">
+          <a href="https://play.google.com/store/apps/details?id=com.subtrackapp.android&pcampaignid=web_share" target="_blank" rel="noopener noreferrer" class="play-store-badge" aria-label="Get SubTrack on Google Play">
+            <img src="assets/google-play-badge.png" alt="Get it on Google Play" width="646" height="250">
+          </a>
+        </div>
+      </div>
+      
+      <div class="hero-visual">
+        <!-- Floating HUD Element 1 -->
+        <div class="floating-hud hud-1">
+          <div class="hud-icon hud-icon-orange">
+            <i data-lucide="bell-ring"></i>
+          </div>
+          <div class="hud-details">
+            <span>Next Renewal</span>
+            <span>Netflix in 2 days</span>
+          </div>
+        </div>
+        
+        <!-- Center Phone Mockup -->
+        <div class="device-container">
+          <div class="device-camera-dot"></div>
+          <div class="device-screen">
+            <img src="assets/home-page-hero.jpeg" alt="SubTrack Dashboard UI" width="360" height="800" fetchpriority="high">
+          </div>
+        </div>
+        
+        <!-- Floating HUD Element 2 -->
+        <div class="floating-hud hud-2">
+          <div class="hud-icon hud-icon-blue">
+            <i data-lucide="sparkles"></i>
+          </div>
+          <div class="hud-details">
+            <span>Gemini parsed</span>
+            <span>Spotify premium added</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Partners / Tech Stack Banner -->
+  <div class="tech-stack">
+    <div class="container tech-wrapper">
+      <div class="tech-title">Official Architecture Stack</div>
+      <div class="tech-logos">
+        <div class="tech-logo">
+          <svg class="tech-logo-svg" viewBox="0 0 24 24" fill="currentColor" style="width: 18px; height: 18px; display: inline-block; vertical-align: middle; margin-right: 6px;">
+            <path d="M12,2 C12,7.5 16.5,12 22,12 C16.5,12 12,16.5 12,22 C12,16.5 7.5,12 2,12 C7.5,12 12,7.5 12,2 Z" fill="url(#gemini-logo-grad)"/>
+            <defs>
+              <linearGradient id="gemini-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#93B0FF" />
+                <stop offset="100%" stop-color="#20C997" />
+              </linearGradient>
+            </defs>
+          </svg>
+          Gemini 2.5 Flash
+        </div>
+        <div class="tech-logo"><i data-lucide="smartphone"></i> Expo & React Native</div>
+        <div class="tech-logo"><i data-lucide="database"></i> Firestore Realtime</div>
+        <div class="tech-logo"><i data-lucide="shield-check"></i> Firebase Auth</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Scroll Feature Showcase (GSAP Pinned Screen) -->
+  <section class="showcase-scroll" id="how-it-works">
+    <div class="container showcase-grid">
+      <div class="scroll-text-container">
+        
+        <!-- Step 1: Tracking -->
+        <div class="scroll-step">
+          <div class="scroll-step-num">01 / DASHBOARD</div>
+          <h2 class="scroll-step-title">Elegant Subscription Dashboards</h2>
+          <p class="scroll-step-desc">
+            Organize all your services in one material-style view. Group subscriptions by categories, currencies, and billing structures. Never lose track of how much you spend weekly, monthly, or annually.
+          </p>
+          <div class="step-tags">
+            <span class="step-tag"><i data-lucide="layers"></i> Multi-Currency Support</span>
+            <span class="step-tag"><i data-lucide="calendar"></i> Custom Billing Cycles</span>
+          </div>
+        </div>
+        
+        <!-- Step 2: Subscriptions -->
+        <div class="scroll-step">
+          <div class="scroll-step-num">02 / SUBSCRIPTIONS</div>
+          <h2 class="scroll-step-title">Subscription Reports at a Glance</h2>
+          <p class="scroll-step-desc">
+            Review monthly totals, active services, yearly run rate, average spend, and billing mix in one clean subscriptions view. Each plan stays easy to compare with renewal timing and monthly cost visible up front.
+          </p>
+          <div class="step-tags">
+            <span class="step-tag"><i data-lucide="refresh-cw"></i> Active Plan Tracking</span>
+            <span class="step-tag"><i data-lucide="bar-chart-2"></i> Monthly Spend Summary</span>
+          </div>
+        </div>
+        
+        <!-- Step 3: Expenses -->
+        <div class="scroll-step">
+          <div class="scroll-step-num">03 / EXPENSES</div>
+          <h2 class="scroll-step-title">Expense Insights by Category</h2>
+          <p class="scroll-step-desc">
+            Filter one-time expenses by period, search spending records, inspect category shares, and compare recent monthly trends before they become budget surprises.
+          </p>
+          <div class="step-tags">
+            <span class="step-tag"><i data-lucide="calendar"></i> Period Filters</span>
+            <span class="step-tag"><i data-lucide="layers"></i> Category Breakdown</span>
+          </div>
+        </div>
+        
+        <!-- Step 4: Invoices -->
+        <div class="scroll-step">
+          <div class="scroll-step-num">04 / INVOICES</div>
+          <h2 class="scroll-step-title">Invoice Tracking & PDF Exporting</h2>
+          <p class="scroll-step-desc">
+            Monitor invoiced totals, outstanding balances, paid status, overdue items, and drafts. Scan receipts, create invoices, and export professional PDFs when you need billing records.
+          </p>
+          <div class="step-tags">
+            <span class="step-tag"><i data-lucide="scan"></i> Receipt Scanner</span>
+            <span class="step-tag"><i data-lucide="file-text"></i> PDF Invoice Export</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Sticky Visual (Interactive Phone Mockup) -->
+      <div class="scroll-visual-container">
+        <div class="showcase-phone">
+          <div class="showcase-phone-screen">
+              <!-- Screen 1: Home Dashboard UI -->
+              <div class="mock-screen-content active" id="screen-dashboard">
+                <img src="assets/home-page-hero.jpeg" alt="SubTrack Home Dashboard" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" width="360" height="800" />
+              </div>
+              
+              <!-- Screen 2: Subscriptions UI -->
+              <div class="mock-screen-content" id="screen-ai">
+                <img src="assets/subscription.jpeg" alt="SubTrack Subscriptions" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" />
+              </div>
+              
+              <!-- Screen 3: Expenses UI -->
+              <div class="mock-screen-content" id="screen-alarm">
+                <img src="assets/expense.jpeg" alt="SubTrack Expenses" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" />
+              </div>
+              
+              <!-- Screen 4: Invoices UI -->
+              <div class="mock-screen-content" id="screen-analytics">
+                <img src="assets/invoices.jpeg" alt="SubTrack Invoices" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  <!-- Detailed Features Grid -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge"><i data-lucide="layers"></i> Inside SubTrack</div>
+        <h2 class="section-title">Everything You Need to Curb Subscription Bloat</h2>
+        <p class="section-desc">Designed with elegant, modern guidelines to give you visual clarity and total management over recurring charges.</p>
+      </div>
+      
+      <div class="features-grid">
+        
+        <!-- Card 1 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper"><i data-lucide="globe"></i></div>
+          <h3>Multilingual parsing</h3>
+          <p>Gemini AI understands Hindi, English, Gujarati, and Hinglish. Describe your reminder naturally and the AI handles structured extraction perfectly.</p>
+        </div>
+        
+        <!-- Card 2 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper"><i data-lucide="shield"></i></div>
+          <h3>Privacy-First Architecture</h3>
+          <p>Enjoy secure anonymous auth. All subscription data syncs to Firestore database scoped strictly by user authentication IDs with Firestore Rules.</p>
+        </div>
+        
+        <!-- Card 3 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper"><i data-lucide="bell"></i></div>
+          <h3>Custom Alarm Previews</h3>
+          <p>Audibly test and select warning sounds (e.g. customized sound previews, alarms) right inside settings to make sure alerts catch your attention.</p>
+        </div>
+        
+        <!-- Card 4 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper"><i data-lucide="palette"></i></div>
+          <h3>Material 3 Theme Engine</h3>
+          <p>Borders, outlines, and inputs shift flawlessly. Built using adaptive light and dark theme palettes for seamless transitions.</p>
+        </div>
+        
+        <!-- Card 5 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper"><i data-lucide="refresh-cw"></i></div>
+          <h3>Offline Sync Resilience</h3>
+          <p>Create, update, or delete subscriptions offline. Firestore caching queues updates and syncs them automatically when connection recovers.</p>
+        </div>
+        
+        <!-- Card 6 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper"><i data-lucide="file-spreadsheet"></i></div>
+          <h3>PDF Billing Reports</h3>
+          <p>Compile details of select periods into professional layouts. Brand invoices with custom logos, and share or download them immediately.</p>
+        </div>
+        
+      </div>
+    </div>
+  </section>
+
+  <!-- User Guides Section -->
+  <section class="section" id="guides" style="background: #08090E; border-top: 1px solid rgba(255,255,255,0.02)">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge"><i data-lucide="book-open"></i> App Documentation</div>
+        <h2 class="section-title">How To Use SubTrack</h2>
+        <p class="section-desc">Quick step-by-step guides to mastering subscription tracking, AI parsing, and alarms.</p>
+      </div>
+
+      <div class="guides-container">
+        
+        <!-- Sidebar Navigation tabs -->
+        <div class="guides-tabs">
+          <button class="guide-tab-btn active" data-target="guide-add">
+            <i data-lucide="plus-circle"></i> Add Subscription
+          </button>
+          <button class="guide-tab-btn" data-target="guide-gemini">
+            <i data-lucide="sparkles"></i> Gemini AI Scanner
+          </button>
+          <button class="guide-tab-btn" data-target="guide-alarms">
+            <i data-lucide="bell"></i> Setup Smart Alarms
+          </button>
+          <button class="guide-tab-btn" data-target="guide-invoice">
+            <i data-lucide="file-text"></i> Export Invoices
+          </button>
+        </div>
+        
+        <!-- Guides Content Panels -->
+        <div class="guide-contents">
+          
+          <!-- Panel 1: Add Subscription -->
+          <div class="guide-content-panel active" id="guide-add">
+            <h3 class="guide-panel-title">Tracking a New Subscription</h3>
+            <p class="guide-panel-desc">Adding a subscription manually is fast, with preset catalogs and customizable intervals.</p>
+            <div class="guide-steps-list">
+              <div class="guide-step-item">
+                <div class="guide-step-badge">1</div>
+                <div class="guide-step-body">
+                  <h4>Click the Add Icon</h4>
+                  <p>Tap the floating action button (+) on the main Subscriptions tab screen.</p>
+                </div>
+              </div>
+              <div class="guide-step-item">
+                <div class="guide-step-badge">2</div>
+                <div class="guide-step-body">
+                  <h4>Enter Information</h4>
+                  <p>Choose from our preset catalog (Netflix, Spotify, etc.) or input custom name, price, billing cycle, currency, and date of next payment.</p>
+                </div>
+              </div>
+              <div class="guide-step-item">
+                <div class="guide-step-badge">3</div>
+                <div class="guide-step-body">
+                  <h4>Configure Alerts & Save</h4>
+                  <p>Select whether you want a standard notification or a full-screen alarm. Tap "Save Subscription".</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Panel 2: Gemini AI Scanner -->
+          <div class="guide-content-panel" id="guide-gemini">
+            <h3 class="guide-panel-title">Extracting Details with Gemini</h3>
+            <p class="guide-panel-desc">Allow SubTrack to read raw billing statements or natural languages to organize subscriptions.</p>
+            <div class="guide-steps-list">
+              <div class="guide-step-item">
+                <div class="guide-step-badge">1</div>
+                <div class="guide-step-body">
+                  <h4>Go to Assistant Tab</h4>
+                  <p>Open the "Assistant" section from the tab navigation menu inside the app.</p>
+                </div>
+              </div>
+              <div class="guide-step-item">
+                <div class="guide-step-badge">2</div>
+                <div class="guide-step-body">
+                  <h4>Input Text or Photo</h4>
+                  <p>Type a note like "Amazon subscription is ₹1499 recurring annually starting on Jun 15th" or upload a photo/screenshot of an invoice/receipt.</p>
+                </div>
+              </div>
+              <div class="guide-step-item">
+                <div class="guide-step-badge">3</div>
+                <div class="guide-step-body">
+                  <h4>Confirm Structured Output</h4>
+                  <p>Gemini reads detail fields (provider name, date, amount, currency) and displays a card. Review details and tap "Add to Tracker".</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Panel 3: Setup Smart Alarms -->
+          <div class="guide-content-panel" id="guide-alarms">
+            <h3 class="guide-panel-title">Enabling High-Importance Alarms</h3>
+            <p class="guide-panel-desc">Configure alarms to run on full screen even when your device is locked, muted, or in DND.</p>
+            <div class="guide-steps-list">
+              <div class="guide-step-item">
+                <div class="guide-step-badge">1</div>
+                <div class="guide-step-body">
+                  <h4>Set Alert Type to 'Alarm'</h4>
+                  <p>When creating or editing a subscription, toggle the alert type option from "Standard" to "Alarm".</p>
+                </div>
+              </div>
+              <div class="guide-step-item">
+                <div class="guide-step-badge">2</div>
+                <div class="guide-step-body">
+                  <h4>Grant Device Permissions</h4>
+                  <p>Android requires Full-Screen Intent permissions to draw overlays, and system permissions to override Do Not Disturb. Grant them when prompted.</p>
+                </div>
+              </div>
+              <div class="guide-step-item">
+                <div class="guide-step-badge">3</div>
+                <div class="guide-step-body">
+                  <h4>Verify sound options</h4>
+                  <p>Navigate to Settings &rarr; Alarm Tones. Audibly preview alarm rings and choose your preferred warning sound.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Panel 4: Export Invoices -->
+          <div class="guide-content-panel" id="guide-invoice">
+            <h3 class="guide-panel-title">Generating PDF Invoices</h3>
+            <p class="guide-panel-desc">Generate, brand, and export customized invoices of your billing histories.</p>
+            <div class="guide-steps-list">
+              <div class="guide-step-item">
+                <div class="guide-step-badge">1</div>
+                <div class="guide-step-body">
+                  <h4>Access Invoices Screen</h4>
+                  <p>Tap the "Invoices" tab. A history of your past subscription payments is loaded automatically.</p>
+                </div>
+              </div>
+              <div class="guide-step-item">
+                <div class="guide-step-badge">2</div>
+                <div class="guide-step-body">
+                  <h4>Customize Invoice Branding</h4>
+                  <p>Tap a specific payment record. Set custom invoice branding options such as company/freelancer header, notes, and logo image.</p>
+                </div>
+              </div>
+              <div class="guide-step-item">
+                <div class="guide-step-badge">3</div>
+                <div class="guide-step-body">
+                  <h4>Export and Share</h4>
+                  <p>Tap "Export PDF". The app converts templates to PDF files. Select to share (via Email, Slack, WhatsApp) or save locally.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Accordion Section -->
+  <section class="section" id="faq">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge"><i data-lucide="help-circle"></i> FAQ</div>
+        <h2 class="section-title">Common Questions</h2>
+        <p class="section-desc">Get quick answers regarding SubTrack features, privacy structures, and alert settings.</p>
+      </div>
+
+      <div class="faq-list">
+        
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Is my subscription data private?</span>
+            <i data-lucide="chevron-down" class="faq-icon-arrow"></i>
+          </button>
+          <div class="faq-answer">
+            Yes. All database entries are synced to Firebase Firestore backend scoped entirely to your user account (anonymous firebase auth). Under our firestore rules, only the owner account UID can read or write to their specific dashboard records.
+          </div>
+        </div>
+        
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>How does the Gemini AI bill parser work?</span>
+            <i data-lucide="chevron-down" class="faq-icon-arrow"></i>
+          </button>
+          <div class="faq-answer">
+            SubTrack runs a secure serverless Vercel function. When you submit text notes or scan receipts, the raw input is passed to our backend API. The API directs Gemini 2.5 Flash models to identify key parameters like amount, cycle, and provider, returning a clean JSON object back to your app securely without exposing private Gemini keys.
+          </div>
+        </div>
+        
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Can I customize the alarm warning tones?</span>
+            <i data-lucide="chevron-down" class="faq-icon-arrow"></i>
+          </button>
+          <div class="faq-answer">
+            Absolutely. If you open Settings inside the app, you will find options to choose from multiple high-volume warning sounds. We've included full sound-preview features so you can sample files and set a tone that will catch your attention.
+          </div>
+        </div>
+        
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Does it work on iOS?</span>
+            <i data-lucide="chevron-down" class="faq-icon-arrow"></i>
+          </button>
+          <div class="faq-answer">
+            Yes, the code is fully cross-platform (built using Expo and React Native). However, Android offers deeper permissions for full-screen overlays and bypassing Do Not Disturb, whereas iOS uses standard local notification prompts with custom alarm sound alerts.
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </section>
+
+  <!-- Download CTA Section -->
+  <section class="section download-section" id="download">
+    <div class="container">
+      <div class="cta-box">
+        <div class="cta-text">
+          <h2 class="cta-title">Stop Paying For Unused Subscriptions</h2>
+          <p class="cta-desc">
+            Download SubTrack today. Set up secure Firestore cloud backups, smart alarms, and let Gemini AI optimize your monthly budget.
+          </p>
+          <div class="cta-buttons">
+            <a href="https://play.google.com/store/apps/details?id=com.subtrackapp.android&pcampaignid=web_share" target="_blank" rel="noopener noreferrer" class="play-store-badge cta-play-badge" aria-label="Get SubTrack on Google Play">
+              <img src="assets/google-play-badge.png" alt="Get it on Google Play" width="646" height="250" loading="lazy">
+            </a>
+          </div>
+        </div>
+        
+        <div class="qr-download-container">
+          <div class="qr-code-mock">
+            <!-- Simulated QR Code SVG -->
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 0h30v30H0zm40 0h20v10H40zm20 0h10v20H60zm10 0h30v30H70zM10 10v10h10V10zm70 0v10h10V10zM0 40h10v20H0zm20 0h20v10H20zm30 0h20v20H50zm30 0h20v10H80zm-70 20h10v10H10zm10 0h20v20H20zm70 0h10v30H90zm-90 20h30v30H0zm40 0h10v10H40zm10 0h20v20H50zm30 0h10v10H80zM10 80v10h10V80zm40 10h10v10H50zm10-10h10v10H60zm10 10h10v10H70z" fill="#090A0F"/>
+            </svg>
+          </div>
+          <div class="qr-text">
+            <span>Open on Google Play</span>
+            <span>Point your camera at this QR code to view SubTrack on your mobile device.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a href="#" class="logo">
+            <img src="assets/SubTrack_App_Icon.small.png" alt="SubTrack Logo" width="96" height="96" loading="lazy">
+            <span>SubTrack</span>
+          </a>
+          <p class="footer-desc">An elegant, privacy-first subscription tracker MVP powered by Google Gemini AI assistant capabilities.</p>
+          <div class="footer-socials">
+            <a href="#" class="social-link" aria-label="Twitter">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width: 18px; height: 18px; display: block;">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="GitHub">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width: 18px; height: 18px; display: block;">
+                <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+              </svg>
+            </a>
+            <a href="#" class="social-link" aria-label="Website"><i data-lucide="globe"></i></a>
+          </div>
+        </div>
+        
+        <div class="footer-col">
+          <div class="footer-col-title">App Features</div>
+          <div class="footer-links">
+            <a href="#how-it-works">AI Assistant</a>
+            <a href="#how-it-works">Renewal Alarms</a>
+            <a href="#how-it-works">Invoices Manager</a>
+            <a href="#how-it-works">Charts Analytics</a>
+          </div>
+        </div>
+        
+        <div class="footer-col">
+          <div class="footer-col-title">Documentation</div>
+          <div class="footer-links">
+            <a href="#guides">Get Started</a>
+            <a href="#guides">Gemini Guide</a>
+            <a href="#guides">Alarms Permissions</a>
+            <a href="#guides">PDF Invoicing</a>
+          </div>
+        </div>
+        
+        <div class="footer-col">
+          <div class="footer-col-title">Developer & Policies</div>
+          <div class="footer-links">
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms & Conditions</a>
+            <a href="#">Vercel Backend API</a>
+            <a href="#">Firebase Firestore Rules</a>
+          </div>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <span>&copy; 2026 SubTrack. All rights reserved. Created in partnership with developer workspaces.</span>
+        <span>Securely Scoped & Anonymous Database</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Showcase Animation Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js" defer></script>
+  <script src="js/main.js?v=2.7.4" defer></script>
+</body>
+</html>

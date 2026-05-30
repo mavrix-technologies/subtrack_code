@@ -9,7 +9,6 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Icon } from 'react-native-paper';
 import Animated, { Layout } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CATEGORIES = [
   { id: 'All',           label: 'All',           icon: 'view-grid-outline' },
@@ -25,7 +24,6 @@ const CATEGORIES = [
 
 export default function ExpensesScreen() {
   const { palette } = useTheme();
-  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const { expenses } = useExpenseStore();
   const { formatAmount, currency } = useCurrency();
@@ -35,16 +33,6 @@ export default function ExpensesScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<'all' | 'thisMonth' | 'lastMonth'>('thisMonth');
   const [splitOnly, setSplitOnly] = useState(false);
-
-  const currentMonthTotal = useMemo(() => {
-    const now = new Date();
-    return expenses
-      .filter(e => {
-        const d = new Date(e.date);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      })
-      .reduce((sum, e) => sum + e.amount, 0);
-  }, [expenses]);
 
   const filteredExpenses = useMemo(() => {
     let result = expenses;
@@ -182,26 +170,7 @@ export default function ExpensesScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Expenses</Text>
-          <Text style={styles.subtitle}>{formatAmount(currentMonthTotal)} this month</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Pressable
-            style={[styles.addButton, styles.addButtonNeutral]}
-            onPress={() => router.push('/friends')}
-            accessibilityLabel="Split friends"
-          >
-            <Icon source="account-heart-outline" size={22} color={palette.text} />
-          </Pressable>
-          <Pressable style={[styles.addButton, styles.addButtonPrimary]} onPress={() => router.push('/add-expense')}>
-            <Icon source="plus" size={20} color="#FFFFFF" />
-          </Pressable>
-        </View>
-      </View>
-
+    <View style={styles.container}>
       <ScrollView 
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -421,39 +390,6 @@ function createStyles(palette: any) {
     container: {
       flex: 1,
       backgroundColor: palette.background,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingBottom: 16,
-      paddingTop: 8,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: '700',
-      color: palette.text,
-    },
-    addButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    addButtonNeutral: {
-      backgroundColor: palette.surface,
-      borderWidth: 1,
-      borderColor: palette.line,
-    },
-    addButtonPrimary: {
-      backgroundColor: palette.primary,
-    },
-    subtitle: {
-      fontSize: 14,
-      color: palette.muted,
-      marginTop: 2,
     },
     searchContainer: {
       paddingHorizontal: 24,

@@ -331,15 +331,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <Text style={styles.headerSubtitle}>Preferences & account</Text>
-        </View>
-      </View>
-
+    <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -670,24 +662,6 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: palette.surface,
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    paddingTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: palette.text,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: palette.muted,
-    marginTop: 2,
   },
   scrollContent: {
     paddingHorizontal: 20,

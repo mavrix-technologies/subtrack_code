@@ -8,7 +8,6 @@ import { router } from 'expo-router';
 import React, { useMemo, useState, useEffect } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Icon } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 const CHART_H = 160;
@@ -184,7 +183,6 @@ const cS = StyleSheet.create({
 });
 export default function InvoicesScreen() {
   const { palette } = useTheme();
-  const insets = useSafeAreaInsets();
   const S = useMemo(() => createStyles(palette), [palette]);
   const { invoices, isLoading } = useInvoiceStore();
   const { formatAmount } = useCurrency();
@@ -223,26 +221,8 @@ export default function InvoicesScreen() {
     <View style={S.root}>
       <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[1]}>
 
-        {/* Hero — title + add btn + big amount + chart + stats, all one surface */}
-        <View style={[S.hero, { paddingTop: insets.top }]}>
-
-          {/* Title row */}
-          <View style={S.heroTitleRow}>
-            <View>
-              <Text style={S.heroTitle}>Invoices</Text>
-              <Text style={S.heroSubtitle}>{invoices.length} invoice{invoices.length !== 1 ? 's' : ''}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Pressable style={[S.addBtn, { backgroundColor: palette.primary }]} onPress={() => router.push('/invoice/scan')}>
-                <Icon source="camera-outline" size={20} color="#fff" />
-              </Pressable>
-              <Pressable style={[S.addBtn, { backgroundColor: palette.primary }]} onPress={() => router.push('/invoice/create')}>
-                <Icon source="plus" size={20} color="#fff" />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Big total amount */}
+        {/* Hero — big amount + chart + stats, all one surface */}
+        <View style={S.hero}>
           <View style={S.heroAmountRow}>
             <Text style={[S.heroAmount, { color: palette.text }]}>{formatAmount(stats.total)}</Text>
             <Text style={[S.heroAmountLabel, { color: palette.muted }]}>Total invoiced</Text>
@@ -334,13 +314,8 @@ function createStyles(palette: any) {
     // ── Unified hero block ──────────────────────────────────────────────
     hero:            { backgroundColor: palette.surface, paddingBottom: 4 },
 
-    // Title row: "Invoices" label + add button
-    heroTitleRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4 },
-    heroTitle:       { fontSize: 28, fontWeight: '700', color: palette.text },
-    heroSubtitle:    { fontSize: 14, color: palette.muted, marginTop: 2 },
-
     // Big amount beneath the title
-    heroAmountRow:   { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 8 },
+    heroAmountRow:   { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 8 },
     heroAmount:      { fontSize: 40, fontWeight: '900', letterSpacing: 0 },
     heroAmountLabel: { fontSize: 13, fontWeight: '500', marginTop: 2 },
 

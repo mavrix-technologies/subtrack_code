@@ -1,34 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import { useTheme } from '@/contexts/theme';
+import { checkDuplicateInvoice } from '@/services/duplicateDetectionEngine';
+import { processInvoiceScan } from '@/services/invoiceOcrService';
+import { detectSimilarMerchant, detectSubscription, trackPriceChanges } from '@/services/merchantIntelligence';
+import { useInvoiceStore } from '@/store/useInvoiceStore';
+import { useScanStore } from '@/store/useScanStore';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
   ActivityIndicator,
   Alert,
+  Pressable,
+  StyleSheet,
+  Text,
   useWindowDimensions,
+  View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from 'react-native-paper';
-import * as ImagePicker from 'expo-image-picker';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
-
-import { useTheme } from '@/contexts/theme';
-import { useScanStore } from '@/store/useScanStore';
-import { useInvoiceStore } from '@/store/useInvoiceStore';
-import { processInvoiceScan } from '@/services/invoiceOcrService';
-import { checkDuplicateInvoice } from '@/services/duplicateDetectionEngine';
-import { trackPriceChanges, detectSubscription, detectSimilarMerchant } from '@/services/merchantIntelligence';
-
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function InvoiceScanScreen() {
   "use no memo";
@@ -36,9 +27,13 @@ export default function InvoiceScanScreen() {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const viewfinderSize = width * 0.75;
-  const S = React.useMemo(() => createStyles(palette, viewfinderSize), [palette, viewfinderSize]);
-
+  const frameWidth = Math.min(width - 40, 360);
+  const frameHeight = Math.round(frameWidth * 1.35);
+  const S = createStyles(palette, frameWidth, frameHeight);
+  const cameraRef = useRef<CameraView>(null);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [flashMode, setFlashMode] = useState<'auto' | 'on' | 'off'>('auto');
+  const [blurWarning, setBlurWarning] = useState<string | null>(null);
   const { invoices } = useInvoiceStore();
   const {
     status,
@@ -53,76 +48,43 @@ export default function InvoiceScanScreen() {
     reset,
   } = useScanStore();
 
-  const [flash, setFlash] = useState(false);
-  const [blurWarning, setBlurWarning] = useState<string | null>(null);
-
-  // Laser scanner animation
-  const laserY = useSharedValue(0);
-
   useEffect(() => {
     reset();
-    laserY.value = withRepeat(
-      withTiming(viewfinderSize - 4, {
-        duration: 2000,
-        easing: Easing.inOut(Easing.ease),
-      }),
-      -1,
-      true
-    );
-  }, [laserY, reset, viewfinderSize]);
+    void requestPermission();
+  }, [requestPermission, reset]);
 
-  const animatedLaserStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateY: laserY.value }],
-    };
-  });
-
-  /**
-   * Blur detection helper
-   */
-  const checkImageBlur = (width: number, height: number): boolean => {
-    // Simple mock check: if dimensions are tiny, it's probably blurred/low quality
-    if (width < 600 || height < 600) {
+  const checkImageBlur = (imageWidth: number, imageHeight: number) => {
+    if (imageWidth < 600 || imageHeight < 600) {
       setBlurWarning('Low resolution detected. Receipt text might be blurry.');
-      return true;
+      return;
     }
     setBlurWarning(null);
-    return false;
   };
 
-  /**
-   * Handles running the scanned base64 data through parsing and intelligence layers
-   */
-  const handleOcrAndMapping = async (uri: string, base64: string, w: number, h: number) => {
+  const handleOcrAndMapping = async (uri: string, base64: string, imageWidth: number, imageHeight: number) => {
     try {
       setStatus('ocr_processing');
       setImage(uri, base64);
-      checkImageBlur(w, h);
+      checkImageBlur(imageWidth, imageHeight);
 
-      // 1. Core OCR Extraction
       const extracted = await processInvoiceScan(uri, base64, invoices);
 
-      // 2. Duplicate Detection
       setStatus('comparing');
       const duplicateResult = checkDuplicateInvoice(extracted, invoices, extracted.imageHash);
       setDuplicateCheck(duplicateResult);
 
-      // 3. Similar Merchant Linking
       const similarMerchant = detectSimilarMerchant(extracted.clientName, invoices);
       if (similarMerchant) {
         extracted.merchantId = similarMerchant.merchantId;
         extracted.category = similarMerchant.category;
       }
 
-      // 4. Product Intelligence (Price changes)
       const priceChanges = trackPriceChanges(extracted.items, extracted.clientName, invoices);
       setPriceChanges(priceChanges);
 
-      // 5. Subscription detection
       const subscriptionRec = detectSubscription(extracted.clientName, extracted.total, invoices);
       setSubscriptionRecommendation(subscriptionRec);
 
-      // 6. Set confidence indicator map (MOCKED confidence values for fields)
       setConfidence({
         clientName: extracted.clientName === 'Unknown Merchant' ? 'low' : 'high',
         total: extracted.total === 0 ? 'low' : 'high',
@@ -132,8 +94,6 @@ export default function InvoiceScanScreen() {
 
       setExtractedData(extracted);
       setStatus('done');
-
-      // Navigate to review screen
       router.push('/invoice/review');
     } catch (err: any) {
       console.error(err);
@@ -142,58 +102,50 @@ export default function InvoiceScanScreen() {
     }
   };
 
-  /**
-   * Launch System Camera
-   */
+  const ensureCameraPermission = async () => {
+    if (permission?.granted) return true;
+    const nextPermission = await requestPermission();
+    if (nextPermission.granted) return true;
+    Alert.alert('Permission required', 'SubTrack needs access to your camera to scan invoices.');
+    return false;
+  };
+
   const handleCameraCapture = async () => {
     try {
-      const { status: permStatus } = await ImagePicker.requestCameraPermissionsAsync();
-      if (permStatus !== 'granted') {
-        Alert.alert(
-          'Permission required',
-          'SubTrack needs access to your camera to scan invoices.'
-        );
+      const granted = await ensureCameraPermission();
+      if (!granted) return;
+      if (!cameraRef.current) {
+        setError('Camera is still starting. Try again in a moment.');
+        setStatus('error');
         return;
       }
 
       setStatus('capturing');
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.5,
+      const photo = await cameraRef.current.takePictureAsync({
         base64: true,
+        quality: 0.72,
+        skipProcessing: false,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        setStatus('compressing');
-        await handleOcrAndMapping(
-          asset.uri,
-          asset.base64 || '',
-          asset.width,
-          asset.height
-        );
-      } else {
+      if (!photo?.uri) {
         setStatus('idle');
+        return;
       }
+
+      setStatus('compressing');
+      await handleOcrAndMapping(photo.uri, photo.base64 || '', photo.width, photo.height);
     } catch (error) {
       console.error(error);
       setStatus('error');
-      setError('Could not open camera.');
+      setError('Could not capture invoice.');
     }
   };
 
-  /**
-   * Launch Image Gallery Picker
-   */
   const handleGalleryUpload = async () => {
     try {
       const { status: permStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permStatus !== 'granted') {
-        Alert.alert(
-          'Permission required',
-          'SubTrack needs permission to access your photo library.'
-        );
+        Alert.alert('Permission required', 'SubTrack needs permission to access your photo library.');
         return;
       }
 
@@ -201,19 +153,14 @@ export default function InvoiceScanScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.5,
+        quality: 0.72,
         base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         setStatus('compressing');
-        await handleOcrAndMapping(
-          asset.uri,
-          asset.base64 || '',
-          asset.width,
-          asset.height
-        );
+        await handleOcrAndMapping(asset.uri, asset.base64 || '', asset.width, asset.height);
       } else {
         setStatus('idle');
       }
@@ -224,302 +171,311 @@ export default function InvoiceScanScreen() {
     }
   };
 
-  /**
-   * Mock Demo scan generator for easy testing
-   */
-  const handleDemoReceiptSelect = async (fileName: string) => {
-    setStatus('compressing');
-    setTimeout(async () => {
-      // Pass file name keyword to trigger matches in our OCR mock database
-      await handleOcrAndMapping(fileName, 'demo_base64_data', 1200, 1800);
-    }, 800);
-  };
-
-  const isProcessing =
-    status !== 'idle' && status !== 'error' && status !== 'done';
+  const isProcessing = status !== 'idle' && status !== 'error' && status !== 'done';
+  const hasCameraPermission = permission?.granted;
 
   return (
     <View style={S.container}>
-      {/* Top Header */}
-      <View style={[S.header, { paddingTop: insets.top }]}>
-        <Pressable onPress={() => router.back()} style={S.backBtn}>
-          <Icon source="arrow-left" size={24} color="#FFF" />
-        </Pressable>
-        <Text style={S.headerTitle}>Invoice Scanner</Text>
-        <Pressable onPress={() => setFlash(!flash)} style={S.flashBtn}>
-          <Icon
-            source={flash ? 'flash' : 'flash-off'}
-            size={22}
-            color="#FFF"
+      <StatusBar style="dark" backgroundColor={palette.background} translucent={false} />
+
+      <View style={S.cameraStage}>
+        {hasCameraPermission ? (
+          <CameraView
+            ref={cameraRef}
+            style={S.camera}
+            facing="back"
+            enableTorch={flashMode === 'on'}
           />
-        </Pressable>
-      </View>
-
-      {/* Main Scanner viewport */}
-      <View style={S.scannerViewport}>
-        <View style={S.viewfinder}>
-          {/* Border Corner Guides */}
-          <View style={[S.corner, S.topLeft]} />
-          <View style={[S.corner, S.topRight]} />
-          <View style={[S.corner, S.bottomLeft]} />
-          <View style={[S.corner, S.bottomRight]} />
-
-          {/* Laser scanning beam */}
-          {isProcessing ? (
-            <View style={S.loadingOverlay}>
-              <ActivityIndicator size="large" color={palette.primary} />
-              <Text style={S.loadingStatus}>
-                {status === 'capturing' && 'Opening camera...'}
-                {status === 'compressing' && 'Optimizing image...'}
-                {status === 'ocr_processing' && 'Extracting text (OCR)...'}
-                {status === 'comparing' && 'Detecting duplicates...'}
-              </Text>
-            </View>
-          ) : (
-            <Animated.View style={[S.laserLine, animatedLaserStyle]} />
-          )}
-        </View>
-
-        {blurWarning && (
-          <View style={S.warningBadge}>
-            <Icon source="alert-circle" size={16} color={palette.warning} />
-            <Text style={[S.warningText, { color: palette.warning }]}>
-              {blurWarning}
-            </Text>
+        ) : (
+          <View style={S.permissionPanel}>
+            <Icon source="camera-lock-outline" size={44} color={palette.primary} />
+            <Text style={S.permissionTitle}>Camera access needed</Text>
+            <Text style={S.permissionText}>Allow camera access to scan invoices in real time.</Text>
+            <Pressable style={S.permissionButton} onPress={requestPermission}>
+              <Text style={S.permissionButtonText}>Allow Camera</Text>
+            </Pressable>
           </View>
         )}
 
-        <Text style={S.instructionText}>
-          Align your invoice inside the frame to scan
-        </Text>
+        <View style={S.frameWrap}>
+          <View style={S.viewfinder}>
+            <View style={[S.corner, S.topLeft]} />
+            <View style={[S.corner, S.topRight]} />
+            <View style={[S.corner, S.bottomLeft]} />
+            <View style={[S.corner, S.bottomRight]} />
+            {isProcessing ? (
+              <View style={S.loadingOverlay}>
+                <ActivityIndicator size="large" color={palette.primary} />
+                <Text style={S.loadingStatus}>
+                  {status === 'capturing' && 'Capturing invoice...'}
+                  {status === 'compressing' && 'Optimizing image...'}
+                  {status === 'ocr_processing' && 'Reading invoice text...'}
+                  {status === 'comparing' && 'Checking duplicates...'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {blurWarning ? (
+          <View style={S.warningBadge}>
+            <Icon source="alert-circle" size={16} color={palette.warning} />
+            <Text style={[S.warningText, { color: palette.warning }]}>{blurWarning}</Text>
+          </View>
+        ) : null}
       </View>
 
-      {/* Action panel */}
-      <BlurView intensity={25} style={[S.actionPanel, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-        <Text style={S.panelHeading}>Select Scan Source</Text>
-
-        <View style={S.actionsRow}>
-          <Pressable style={S.actionBtn} onPress={handleCameraCapture} disabled={isProcessing}>
-            <View style={[S.iconContainer, { backgroundColor: palette.primary }]}>
-              <Icon source="camera" size={26} color="#FFF" />
-            </View>
-            <Text style={S.actionBtnLabel}>Camera</Text>
+      <View style={[S.actionPanel, { paddingBottom: Math.max(insets.bottom + 12, 26) }]}>
+        <View style={S.topActions}>
+          <Pressable style={S.iconButton} onPress={() => router.back()}>
+            <Icon source="arrow-left" size={22} color={palette.text} />
           </Pressable>
-
-          <Pressable style={S.actionBtn} onPress={handleGalleryUpload} disabled={isProcessing}>
-            <View style={[S.iconContainer, { backgroundColor: '#3A3A3C' }]}>
-              <Icon source="image-outline" size={26} color="#FFF" />
-            </View>
-            <Text style={S.actionBtnLabel}>Gallery</Text>
-          </Pressable>
-
           <Pressable
-            style={S.actionBtn}
-            onPress={() => handleDemoReceiptSelect('invoice_netflix.png')}
-            disabled={isProcessing}
+            style={S.flashModeButton}
+            onPress={() => setFlashMode((value) => (value === 'auto' ? 'on' : value === 'on' ? 'off' : 'auto'))}
+            disabled={!hasCameraPermission}
           >
-            <View style={[S.iconContainer, { backgroundColor: '#3A3A3C' }]}>
-              <Icon source="netflix" size={26} color="#E50914" />
-            </View>
-            <Text style={S.actionBtnLabel}>Netflix Bill</Text>
+            <Icon
+              source={flashMode === 'on' ? 'flash' : flashMode === 'auto' ? 'flash-auto' : 'flash-off'}
+              size={19}
+              color={palette.text}
+            />
+            <Text style={S.flashModeText}>
+              {flashMode === 'auto' ? 'Auto' : flashMode === 'on' ? 'On' : 'Off'}
+            </Text>
           </Pressable>
         </View>
 
-        <View style={[S.actionsRow, { marginTop: 16 }]}>
-          <Pressable
-            style={S.actionBtn}
-            onPress={() => handleDemoReceiptSelect('invoice_dmart.png')}
-            disabled={isProcessing}
-          >
-            <View style={[S.iconContainer, { backgroundColor: '#3A3A3C' }]}>
-              <Icon source="shopping-outline" size={26} color="#06D6A0" />
-            </View>
-            <Text style={S.actionBtnLabel}>DMart Bill</Text>
-          </Pressable>
+        <Pressable style={S.captureButton} onPress={handleCameraCapture} disabled={isProcessing || !hasCameraPermission}>
+          <View style={S.captureInner}>
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Icon source="line-scan" size={30} color="#FFFFFF" />
+            )}
+          </View>
+        </Pressable>
 
-          <Pressable
-            style={S.actionBtn}
-            onPress={() => handleDemoReceiptSelect('invoice_spotify.png')}
-            disabled={isProcessing}
-          >
-            <View style={[S.iconContainer, { backgroundColor: '#3A3A3C' }]}>
-              <Icon source="spotify" size={26} color="#1ED760" />
-            </View>
-            <Text style={S.actionBtnLabel}>Spotify Bill</Text>
-          </Pressable>
-
-          <Pressable
-            style={S.actionBtn}
-            onPress={() => handleDemoReceiptSelect('invoice_jio.png')}
-            disabled={isProcessing}
-          >
-            <View style={[S.iconContainer, { backgroundColor: '#3A3A3C' }]}>
-              <Icon source="wifi" size={26} color="#0056B3" />
-            </View>
-            <Text style={S.actionBtnLabel}>Jio Fiber</Text>
-          </Pressable>
-        </View>
-      </BlurView>
+        <Pressable style={S.galleryButton} onPress={handleGalleryUpload} disabled={isProcessing}>
+          <Icon source="image-outline" size={20} color={palette.text} />
+          <Text style={S.galleryButtonText}>Choose from gallery</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-const createStyles = (palette: any, viewfinderSize: number) =>
+const createStyles = (palette: any, frameWidth: number, frameHeight: number) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#0A0A0C', // Cinematic dark look
+      backgroundColor: palette.background,
     },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingBottom: 16,
-      backgroundColor: 'rgba(10, 10, 12, 0.95)',
-    },
-    backBtn: {
-      padding: 8,
-      borderRadius: 20,
-      backgroundColor: '#1C1C1E',
-    },
-    headerTitle: {
-      color: '#FFF',
-      fontSize: 18,
-      fontWeight: '600',
-    },
-    flashBtn: {
-      padding: 8,
-      borderRadius: 20,
-      backgroundColor: '#1C1C1E',
-    },
-    scannerViewport: {
+    cameraStage: {
       flex: 1,
-      justifyContent: 'center',
+      backgroundColor: palette.background,
       alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    camera: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    frameWrap: {
+      width: frameWidth,
+      height: frameHeight,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     viewfinder: {
-      width: viewfinderSize,
-      height: viewfinderSize,
-      borderRadius: 16,
-      position: 'relative',
+      width: frameWidth,
+      height: frameHeight,
+      borderRadius: 26,
       overflow: 'hidden',
-      backgroundColor: 'rgba(255, 255, 255, 0.03)',
-      borderColor: 'rgba(255, 255, 255, 0.1)',
+      position: 'relative',
       borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.62)',
+      backgroundColor: 'rgba(255,255,255,0.04)',
     },
     corner: {
       position: 'absolute',
-      width: 24,
-      height: 24,
+      width: 36,
+      height: 36,
       borderColor: palette.primary,
+      zIndex: 3,
     },
     topLeft: {
       top: 0,
       left: 0,
-      borderTopWidth: 4,
-      borderLeftWidth: 4,
-      borderTopLeftRadius: 16,
+      borderTopWidth: 5,
+      borderLeftWidth: 5,
+      borderTopLeftRadius: 26,
     },
     topRight: {
       top: 0,
       right: 0,
-      borderTopWidth: 4,
-      borderRightWidth: 4,
-      borderTopRightRadius: 16,
+      borderTopWidth: 5,
+      borderRightWidth: 5,
+      borderTopRightRadius: 26,
     },
     bottomLeft: {
       bottom: 0,
       left: 0,
-      borderBottomWidth: 4,
-      borderLeftWidth: 4,
-      borderBottomLeftRadius: 16,
+      borderBottomWidth: 5,
+      borderLeftWidth: 5,
+      borderBottomLeftRadius: 26,
     },
     bottomRight: {
       bottom: 0,
       right: 0,
-      borderBottomWidth: 4,
-      borderRightWidth: 4,
-      borderBottomRightRadius: 16,
-    },
-    laserLine: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      height: 3,
-      backgroundColor: palette.primary,
-      boxShadow: `0px 0px 8px ${palette.primary}`,
+      borderBottomWidth: 5,
+      borderRightWidth: 5,
+      borderBottomRightRadius: 26,
     },
     loadingOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.7)',
-      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.84)',
       alignItems: 'center',
-      padding: 16,
+      justifyContent: 'center',
+      padding: 18,
+      zIndex: 5,
     },
     loadingStatus: {
-      color: '#FFF',
-      marginTop: 16,
+      color: palette.text,
+      marginTop: 14,
       fontSize: 14,
-      fontWeight: '500',
+      fontWeight: '800',
+      textAlign: 'center',
     },
     warningBadge: {
+      position: 'absolute',
+      bottom: 12,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+      backgroundColor: 'rgba(245,158,11,0.14)',
       paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 12,
-      marginTop: 16,
-      marginHorizontal: 32,
+      paddingVertical: 7,
+      borderRadius: 14,
+      gap: 6,
     },
     warningText: {
       fontSize: 12,
-      marginLeft: 6,
-      fontWeight: '500',
+      fontWeight: '700',
     },
-    instructionText: {
-      color: '#8E8E93',
-      fontSize: 14,
+    permissionPanel: {
+      width: frameWidth,
+      borderRadius: 24,
+      padding: 22,
+      alignItems: 'center',
+      backgroundColor: palette.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: palette.line,
+      gap: 10,
+    },
+    permissionTitle: {
+      color: palette.text,
+      fontSize: 18,
+      fontWeight: '900',
+    },
+    permissionText: {
+      color: palette.muted,
+      fontSize: 13,
+      fontWeight: '600',
       textAlign: 'center',
-      marginTop: 20,
-      marginHorizontal: 32,
+      lineHeight: 18,
+    },
+    permissionButton: {
+      marginTop: 6,
+      minHeight: 42,
+      borderRadius: 21,
+      paddingHorizontal: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.primary,
+    },
+    permissionButtonText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '900',
     },
     actionPanel: {
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      borderTopLeftRadius: 28,
-      borderTopRightRadius: 28,
-      backgroundColor: 'rgba(28, 28, 30, 0.95)',
-      overflow: 'hidden',
+      backgroundColor: palette.background,
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      alignItems: 'center',
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: palette.line,
     },
-    panelHeading: {
-      color: '#FFF',
-      fontSize: 16,
-      fontWeight: '600',
-      marginBottom: 16,
-      textAlign: 'center',
-    },
-    actionsRow: {
+    topActions: {
+      position: 'absolute',
+      top: 16,
+      left: 24,
+      right: 24,
       flexDirection: 'row',
       justifyContent: 'space-between',
     },
-    actionBtn: {
-      flex: 1,
+    iconButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
       alignItems: 'center',
-    },
-    iconContainer: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
       justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 8,
-      boxShadow: '0px 2px 3.84px rgba(0,0,0,0.25)',
+      backgroundColor: palette.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: palette.line,
     },
-    actionBtnLabel: {
-      color: '#8E8E93',
+    flashModeButton: {
+      minWidth: 76,
+      height: 42,
+      borderRadius: 21,
+      paddingHorizontal: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: palette.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: palette.line,
+    },
+    flashModeText: {
+      color: palette.text,
       fontSize: 12,
-      fontWeight: '500',
+      fontWeight: '800',
+    },
+    captureButton: {
+      width: 78,
+      height: 78,
+      borderRadius: 39,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: `${palette.primary}24`,
+      borderWidth: 2,
+      borderColor: palette.primary,
+    },
+    captureInner: {
+      width: 62,
+      height: 62,
+      borderRadius: 31,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.primary,
+    },
+    galleryButton: {
+      marginTop: 14,
+      minHeight: 42,
+      borderRadius: 21,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: palette.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: palette.line,
+    },
+    galleryButtonText: {
+      color: palette.text,
+      fontSize: 13,
+      fontWeight: '800',
     },
   });

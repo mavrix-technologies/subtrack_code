@@ -4,14 +4,13 @@ import { POPULAR_APPS } from '@/constants/brands';
 import { useAppData } from '@/contexts/app-data';
 import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';
-import { getCategoryBreakdown, getMonthlyEquivalent, getUpcomingRenewals } from '@/utils/calculations';
+import { getMonthlyEquivalent } from '@/utils/calculations';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Icon } from 'react-native-paper';
 import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function getPaymentMethod(notes?: string) {
   const trimmed = notes?.trim();
@@ -21,45 +20,22 @@ function getPaymentMethod(notes?: string) {
 
 export default function SubscriptionsScreen() {
   const { palette } = useTheme();
-  const styles = useMemo(() => createStyles(palette), [palette]);
-  const insets = useSafeAreaInsets();
+  const styles = createStyles(palette);
   const { subscriptions, removeSubscription } = useAppData();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { formatAmount } = useCurrency();
-  const report = useMemo(() => {
-    const monthlyTotal = subscriptions.reduce((sum, sub) => sum + getMonthlyEquivalent(sub), 0);
-    const yearlyTotal = monthlyTotal * 12;
-    const categoryBreakdown = getCategoryBreakdown(subscriptions).slice(0, 5);
-    const upcoming = getUpcomingRenewals(subscriptions).slice(0, 4).map((sub) => {
-      const date = new Date(sub.nextBillingDate);
-      return {
-        id: sub.id,
-        name: sub.name,
-        amount: getMonthlyEquivalent(sub),
-        label: Number.isNaN(date.getTime())
-          ? 'No date'
-          : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      };
-    });
-    return { monthlyTotal, yearlyTotal, categoryBreakdown, upcoming };
-  }, [subscriptions]);
+  const monthlyTotal = subscriptions.reduce((sum, sub) => sum + getMonthlyEquivalent(sub), 0);
+  const monthlySubscriptions = subscriptions.filter((sub) => sub.billingCycle === 'monthly').length;
+  const report = {
+    monthlyTotal,
+    yearlyTotal: monthlyTotal * 12,
+    monthlySubscriptions,
+    yearlySubscriptions: subscriptions.length - monthlySubscriptions,
+    average: subscriptions.length > 0 ? monthlyTotal / subscriptions.length : 0,
+  };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Subscriptions</Text>
-          <Text style={styles.subtitle}>{subscriptions.length} active</Text>
-        </View>
-        <Pressable
-          style={styles.addButton}
-          onPress={() => router.push('/add')}
-        >
-          <Icon source="plus" size={20} color="#FFFFFF" />
-        </Pressable>
-      </View>
-
+    <View style={styles.container}>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -67,56 +43,45 @@ export default function SubscriptionsScreen() {
         {subscriptions.length > 0 && (
           <View style={styles.reportPanel}>
             <View style={styles.reportHeader}>
-              <View>
+              <View style={styles.reportHeading}>
                 <Text style={styles.reportTitle}>Subscription report</Text>
-                <Text style={styles.reportSub}>Monthly and category spend</Text>
+                <Text style={styles.reportSub}>Clean monthly overview</Text>
               </View>
+              <Icon source="chart-donut" size={22} color={palette.primary} />
+            </View>
+
+            <View style={styles.reportHero}>
               <View style={styles.reportTotalBox}>
-                <Text style={styles.reportTotalLabel}>Monthly</Text>
-                <Text style={styles.reportTotal}>{formatAmount(report.monthlyTotal)}</Text>
+                <Text style={styles.reportTotalLabel}>Monthly total</Text>
+                <Text style={styles.reportTotal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+                  {formatAmount(report.monthlyTotal)}
+                </Text>
+              </View>
+              <View style={styles.reportCycleBadge}>
+                <Text style={styles.reportCycleText}>{subscriptions.length} active</Text>
               </View>
             </View>
 
             <View style={styles.metricsRow}>
               <View style={styles.metricBox}>
+                <Icon source="calendar-sync-outline" size={18} color={palette.primary} />
                 <Text style={styles.metricLabel}>Yearly run rate</Text>
-                <Text style={styles.metricValue}>{formatAmount(report.yearlyTotal)}</Text>
+                <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(report.yearlyTotal)}</Text>
               </View>
               <View style={styles.metricBox}>
+                <Icon source="calculator-variant-outline" size={18} color={palette.primary} />
                 <Text style={styles.metricLabel}>Average</Text>
-                <Text style={styles.metricValue}>{formatAmount(report.monthlyTotal / subscriptions.length)}</Text>
+                <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(report.average)}</Text>
+              </View>
+              <View style={styles.metricBox}>
+                <Icon source="calendar-range-outline" size={18} color={palette.primary} />
+                <Text style={styles.metricLabel}>Billing mix</Text>
+                <Text style={styles.metricValue} numberOfLines={1}>
+                  {report.monthlySubscriptions}M / {report.yearlySubscriptions}Y
+                </Text>
               </View>
             </View>
 
-            <View style={styles.chartBlock}>
-              <Text style={styles.chartTitle}>By category</Text>
-              {report.categoryBreakdown.map((item) => (
-                <View key={item.category} style={styles.barRow}>
-                  <Text style={styles.barLabel} numberOfLines={1}>{item.category}</Text>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: `${Math.max(6, item.percentage)}%` }]} />
-                  </View>
-                  <Text style={styles.barValue}>{item.percentage}%</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.chartBlock}>
-              <Text style={styles.chartTitle}>Upcoming renewals</Text>
-              <View style={styles.renewalGraph}>
-                {report.upcoming.map((item) => {
-                  const maxAmount = Math.max(...report.upcoming.map((r) => r.amount), 1);
-                  const height = 24 + Math.round((item.amount / maxAmount) * 54);
-                  return (
-                    <View key={item.id} style={styles.renewalColumn}>
-                      <View style={[styles.renewalBar, { height }]} />
-                      <Text style={styles.renewalName} numberOfLines={1}>{item.name}</Text>
-                      <Text style={styles.renewalDate}>{item.label}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
           </View>
         )}
 
@@ -229,44 +194,17 @@ const createStyles = (palette: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: palette.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    paddingTop: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: palette.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: palette.muted,
-    marginTop: 2,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: palette.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   scrollContent: {
     paddingHorizontal: 24,
     paddingBottom: 120,
     paddingTop: 8,
   },
   reportPanel: {
-    backgroundColor: palette.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: palette.line,
-    padding: 16,
-    marginBottom: 18,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    padding: 0,
+    marginBottom: 20,
+    gap: 16,
   },
   listAd: {
     marginBottom: 12,
@@ -275,128 +213,210 @@ const createStyles = (palette: any) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+  },
+  reportHeading: {
+    flex: 1,
+    minWidth: 0,
   },
   reportTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '900',
     color: palette.text,
   },
   reportSub: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: palette.muted,
     marginTop: 3,
   },
-  reportTotalBox: {
+  reportHero: {
+    borderRadius: 20,
+    backgroundColor: palette.primary,
+    padding: 16,
+    flexDirection: 'row',
     alignItems: 'flex-end',
-    flexShrink: 0,
+    justifyContent: 'space-between',
+    gap: 14,
+    overflow: 'hidden',
+  },
+  reportTotalBox: {
+    flex: 1,
+    minWidth: 0,
   },
   reportTotalLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: palette.muted,
-    textTransform: 'uppercase',
+    fontSize: 12,
+    fontWeight: '900',
+    color: 'rgba(255,255,255,0.78)',
   },
   reportTotal: {
-    fontSize: 18,
+    fontSize: 34,
     fontWeight: '900',
-    color: palette.primary,
-    marginTop: 2,
+    color: '#FFFFFF',
+    letterSpacing: 0,
+    marginTop: 4,
+  },
+  reportCycleBadge: {
+    minHeight: 30,
+    borderRadius: 15,
+    paddingHorizontal: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    flexShrink: 0,
+  },
+  reportCycleText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
   },
   metricsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
+    gap: 8,
   },
   metricBox: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: palette.line,
-    borderRadius: 10,
+    backgroundColor: palette.surface,
+    borderRadius: 16,
     padding: 12,
-    backgroundColor: palette.background,
+    minHeight: 92,
+    justifyContent: 'space-between',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.line,
   },
   metricLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: palette.muted,
-    textTransform: 'uppercase',
+    marginTop: 6,
   },
   metricValue: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '900',
     color: palette.text,
-    marginTop: 5,
+    letterSpacing: 0,
   },
-  chartBlock: {
-    marginTop: 16,
+  reportSection: {
     gap: 10,
+  },
+  reportSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   chartTitle: {
     fontSize: 13,
     fontWeight: '900',
     color: palette.text,
   },
+  sectionHint: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: palette.muted,
+    textTransform: 'capitalize',
+    flexShrink: 1,
+  },
   barRow: {
+    gap: 7,
+    position: 'relative',
+    paddingRight: 92,
+  },
+  categoryLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+  },
+  categoryDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: palette.primary,
+    flexShrink: 0,
   },
   barLabel: {
-    width: 86,
+    flex: 1,
     fontSize: 12,
-    fontWeight: '700',
-    color: palette.muted,
+    fontWeight: '900',
+    color: palette.text,
     textTransform: 'capitalize',
   },
   barTrack: {
-    flex: 1,
-    height: 9,
-    borderRadius: 5,
+    height: 7,
+    borderRadius: 4,
     backgroundColor: palette.background,
     overflow: 'hidden',
   },
   barFill: {
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 4,
     backgroundColor: palette.primary,
   },
   barValue: {
-    width: 36,
-    textAlign: 'right',
     fontSize: 12,
-    fontWeight: '800',
-    color: palette.text,
+    fontWeight: '900',
+    color: palette.primary,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
-  renewalGraph: {
-    minHeight: 112,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+  renewalList: {
     gap: 10,
   },
-  renewalColumn: {
-    flex: 1,
+  renewalRow: {
+    minHeight: 62,
+    borderRadius: 18,
+    backgroundColor: palette.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.line,
+    padding: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 12,
+  },
+  renewalIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  renewalTextBlock: {
+    flex: 1,
     minWidth: 0,
   },
-  renewalBar: {
-    width: '72%',
-    maxWidth: 28,
-    borderRadius: 7,
-    backgroundColor: palette.primary,
+  renewalInitial: {
+    fontSize: 17,
+    fontWeight: '900',
   },
   renewalName: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '900',
     color: palette.text,
-    maxWidth: '100%',
   },
   renewalDate: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     color: palette.muted,
+    marginTop: 3,
+  },
+  renewalAmountBlock: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+    maxWidth: 102,
+  },
+  renewalAmount: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: palette.text,
+  },
+  renewalMonthly: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: palette.muted,
+    marginTop: 3,
   },
   card: {
     backgroundColor: palette.surface,

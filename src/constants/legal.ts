@@ -16,7 +16,7 @@ export const legalPages = {
   privacy: {
     title: 'Privacy Policy',
     subtitle: 'How SubTrack collects, uses, and protects information',
-    updatedAt: 'May 14, 2026',
+    updatedAt: 'May 28, 2026',
     sections: [
       {
         title: 'Information we collect',
