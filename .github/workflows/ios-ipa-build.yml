@@ -1,0 +1,104 @@
+name: iOS IPA Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS build profile to use
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - preview
+          - development
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ios-ipa-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build iOS IPA on EAS
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      CI: 1
+      EXPO_NO_TELEMETRY: 1
+      EAS_BUILD_PROFILE: ${{ github.event.inputs.profile || 'production' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Check Expo token
+        env:
+          EXPO_TOKEN_SECRET: ${{ secrets.EXPO_TOKEN }}
+          SUBTRACK_SECRET: ${{ secrets.SUBTRACK }}
+        run: |
+          if [ -z "$EXPO_TOKEN_SECRET" ] && [ -z "$SUBTRACK_SECRET" ]; then
+            echo "::error::Missing Expo token. Create an Expo access token, then add it as a GitHub repository secret named EXPO_TOKEN."
+            exit 1
+          fi
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 18.13.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN || secrets.SUBTRACK }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify EAS auth
+        run: eas whoami
+
+      - name: Build iOS IPA
+        id: build
+        run: |
+          eas build --platform ios --profile "$EAS_BUILD_PROFILE" --non-interactive --wait --json > eas-build-result.json
+          IPA_URL="$(node <<'NODE'
+          const fs = require('fs');
+          const result = JSON.parse(fs.readFileSync('eas-build-result.json', 'utf8'));
+          const builds = Array.isArray(result) ? result : [result];
+          const build = builds.find((item) => String(item.platform).toLowerCase() === 'ios') || builds[0];
+          const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl || build?.artifactUrl;
+
+          if (!url) {
+            console.error('Could not find an IPA artifact URL in eas-build-result.json.');
+            process.exit(1);
+          }
+
+          process.stdout.write(url);
+          NODE
+          )"
+          echo "ipa_url=$IPA_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Download iOS IPA
+        run: curl --fail --location "${{ steps.build.outputs.ipa_url }}" --output SubTrack.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SubTrack-iOS-${{ env.EAS_BUILD_PROFILE }}-ipa
+          path: SubTrack.ipa
+          if-no-files-found: error
