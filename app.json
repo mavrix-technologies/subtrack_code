@@ -12,6 +12,7 @@
       "bundleIdentifier": "com.subtrackapp.ios",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Allow photo access so SubTrack can save invoice images.",
         "NSPhotoLibraryAddUsageDescription": "Allow SubTrack to save invoice images to your photo library."
       }
