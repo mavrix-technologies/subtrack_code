@@ -67,18 +67,23 @@ jobs:
             -sdk iphoneos \
             -derivedDataPath build \
             -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGN_ENTITLEMENTS="" \
+            CODE_SIGN_IDENTITY="-" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             build 2>&1 | tee xcode_build.log || { echo "=================== XCODE BUILD FAILURE LOG ==================="; tail -n 150 xcode_build.log; exit 1; }
 
       - name: Create IPA
         run: |
           cd ios/build/Build/Products/Release-iphoneos
+          rm -rf Payload SubTrack.ipa
           mkdir -p Payload
-          mv SubTrack.app Payload/
-          zip -qq -r -9 SubTrack.ipa Payload
+          cp -RL SubTrack.app Payload/
+          echo "=== Verifying Payload contents ==="
+          ls -la Payload/SubTrack.app/Info.plist
+          zip -r -9 SubTrack.ipa Payload
           mv SubTrack.ipa ${{ github.workspace }}/
 
       - name: Upload IPA artifact
