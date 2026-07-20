@@ -2,9 +2,6 @@ name: Android Play Store Build
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 concurrency:
   group: android-playstore-build-${{ github.ref }}
