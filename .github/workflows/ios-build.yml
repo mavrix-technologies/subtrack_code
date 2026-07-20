@@ -40,6 +40,49 @@ jobs:
       - name: Prebuild iOS
         run: npx expo prebuild --platform ios --clean
 
+      - name: Patch Podfile and Xcode Project for Unsigned Build
+        run: |
+          node -e '
+          const fs = require("fs");
+          
+          // 1. Patch Podfile
+          const podfile = "ios/Podfile";
+          if (fs.existsSync(podfile)) {
+            let content = fs.readFileSync(podfile, "utf8");
+            const patch = `
+            installer.pods_project.targets.each do |target|
+              target.build_configurations.each do |config|
+                config.build_settings["CODE_SIGNING_ALLOWED"] = "NO"
+                config.build_settings["CODE_SIGNING_REQUIRED"] = "NO"
+                config.build_settings["CODE_SIGN_IDENTITY"] = ""
+                config.build_settings["EXPANDED_CODE_SIGN_IDENTITY"] = ""
+                config.build_settings["DEVELOPMENT_TEAM"] = ""
+                config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = ""
+              end
+            end
+            `;
+            if (content.includes("post_install do |installer|")) {
+              content = content.replace("post_install do |installer|", "post_install do |installer|\n" + patch);
+            } else {
+              content += "\npost_install do |installer|\n" + patch + "\nend\n";
+            }
+            fs.writeFileSync(podfile, content);
+            console.log("Successfully patched ios/Podfile");
+          }
+
+          // 2. Patch Xcode Project
+          const pbxproj = "ios/SubTrack.xcodeproj/project.pbxproj";
+          if (fs.existsSync(pbxproj)) {
+            let content = fs.readFileSync(pbxproj, "utf8");
+            content = content.replace(/CODE_SIGN_STYLE = Automatic;/g, "CODE_SIGN_STYLE = Manual;");
+            content = content.replace(/CODE_SIGN_IDENTITY = "([^"]*)";/g, "CODE_SIGN_IDENTITY = \"\";");
+            content = content.replace(/DEVELOPMENT_TEAM = [^;]*;/g, "DEVELOPMENT_TEAM = \"\";");
+            content = content.replace(/PROVISIONING_PROFILE_SPECIFIER = [^;]*;/g, "PROVISIONING_PROFILE_SPECIFIER = \"\";");
+            fs.writeFileSync(pbxproj, content);
+            console.log("Successfully patched ios/SubTrack.xcodeproj/project.pbxproj");
+          }
+          '
+
       - name: Install CocoaPods dependencies
         run: |
           cd ios
@@ -57,10 +100,12 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            CODE_SIGN_ENTITLEMENTS="" \
+            EXPANDED_CODE_SIGN_IDENTITY="" \
+            EXPANDED_CODE_SIGN_IDENTITY_NAME="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
             build
 
       - name: Create IPA
