@@ -52,9 +52,10 @@ jobs:
             const patch = `
             installer.pods_project.targets.each do |target|
               target.build_configurations.each do |config|
-                config.build_settings["CODE_SIGN_IDENTITY"] = "-"
+                config.build_settings["CODE_SIGNING_ALLOWED"] = "NO"
                 config.build_settings["CODE_SIGNING_REQUIRED"] = "NO"
-                config.build_settings["CODE_SIGNING_ALLOWED"] = "YES"
+                config.build_settings["CODE_SIGN_IDENTITY"] = ""
+                config.build_settings["EXPANDED_CODE_SIGN_IDENTITY"] = ""
                 config.build_settings["DEVELOPMENT_TEAM"] = ""
                 config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = ""
               end
@@ -74,7 +75,7 @@ jobs:
           if (fs.existsSync(pbxproj)) {
             let content = fs.readFileSync(pbxproj, "utf8");
             content = content.replace(/CODE_SIGN_STYLE = Automatic;/g, "CODE_SIGN_STYLE = Manual;");
-            content = content.replace(/CODE_SIGN_IDENTITY = "([^"]*)";/g, "CODE_SIGN_IDENTITY = \"-\";");
+            content = content.replace(/CODE_SIGN_IDENTITY = "([^"]*)";/g, "CODE_SIGN_IDENTITY = \"\";");
             content = content.replace(/DEVELOPMENT_TEAM = [^;]*;/g, "DEVELOPMENT_TEAM = \"\";");
             content = content.replace(/PROVISIONING_PROFILE_SPECIFIER = [^;]*;/g, "PROVISIONING_PROFILE_SPECIFIER = \"\";");
             fs.writeFileSync(pbxproj, content);
@@ -87,40 +88,33 @@ jobs:
           cd ios
           pod install
 
-      - name: Patch Framework Signing Scripts
-        run: |
-          find ios/Pods/Target\ Support\ Files -name "*-frameworks.sh" -exec sed -i '' 's/codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY"/codesign --force --sign "-" /g' {} + 2>/dev/null || true
-
-      - name: Build iOS app (no codesign)
+      - name: Build iOS Archive (Unsigned)
         run: |
           cd ios
-          xcodebuild -workspace SubTrack.xcworkspace \
+          xcodebuild archive \
+            -workspace SubTrack.xcworkspace \
             -scheme SubTrack \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath build \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=YES \
+            -archivePath build/SubTrack.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="-" \
-            EXPANDED_CODE_SIGN_IDENTITY="-" \
-            EXPANDED_CODE_SIGN_IDENTITY_NAME="-" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            build
+            COMPILER_INDEX_STORE_ENABLE=NO
 
       - name: Create IPA
         run: |
-          cd ios/build/Build/Products/Release-iphoneos
-          if [ ! -d "SubTrack.app" ]; then
-            echo "::error::SubTrack.app was not found in Release-iphoneos directory!"
-            ls -la .
+          cd ios
+          ARCHIVE_APP="build/SubTrack.xcarchive/Products/Applications/SubTrack.app"
+          if [ ! -d "$ARCHIVE_APP" ]; then
+            echo "::error::SubTrack.app was not found in $ARCHIVE_APP!"
+            ls -la build/SubTrack.xcarchive/Products/Applications/ 2>/dev/null || true
             exit 1
           fi
           mkdir -p Payload
-          mv SubTrack.app Payload/
+          cp -R "$ARCHIVE_APP" Payload/
           zip -qq -r -9 SubTrack.ipa Payload
           mv SubTrack.ipa ${{ github.workspace }}/
 
