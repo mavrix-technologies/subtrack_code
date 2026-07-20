@@ -26,31 +26,19 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
       - name: Install dependencies
         run: npm ci
 
       - name: Prebuild iOS
         run: npx expo prebuild --platform ios --clean
-
-      - name: Patch Podfile for XCode compatibility (if needed)
-        run: |
-          cd ios
-          # Check XCode version
-          xcodebuild -version
-          # Remove strict XCode version check if present
-          if grep -q "React Native requires XCode" Podfile; then
-            echo "Patching Podfile to remove XCode version requirement..."
-            sed -i.bak '/React Native requires XCode/,/raise.*XCode/d' Podfile
-            echo "Podfile patched successfully"
-          else
-            echo "No XCode version check found in Podfile"
-          fi
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          working-directory: ios
 
       - name: Install CocoaPods dependencies
         run: |
@@ -70,11 +58,19 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGN_ENTITLEMENTS="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             build
 
       - name: Create IPA
         run: |
           cd ios/build/Build/Products/Release-iphoneos
+          if [ ! -d "SubTrack.app" ]; then
+            echo "::error::SubTrack.app was not found in Release-iphoneos directory!"
+            ls -la .
+            exit 1
+          fi
           mkdir -p Payload
           mv SubTrack.app Payload/
           zip -qq -r -9 SubTrack.ipa Payload
@@ -94,6 +90,7 @@ jobs:
         with:
           tag_name: ios-v${{ github.run_number }}
           name: iOS Build v${{ github.run_number }} (Unsigned)
+          target_commitish: ${{ github.sha }}
           body: |
             iOS IPA Build - Unsigned (No Code Signing)
             
