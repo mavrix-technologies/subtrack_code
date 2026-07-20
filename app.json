@@ -166,9 +166,5 @@
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
     }
-  },
-  "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-6003470714469240~3430706633",
-    "ios_app_id": "ca-app-pub-6003470714469240~8032294021"
   }
 }
