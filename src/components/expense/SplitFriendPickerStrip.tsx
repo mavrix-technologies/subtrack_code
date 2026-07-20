@@ -41,6 +41,7 @@ export function SplitFriendPickerStrip({
           <Icon source="plus" size={20} color={primaryColor} />
           <Text style={[styles.chipTxt, { color: primaryColor }]}>New profile</Text>
         </Pressable>
+        {/* react-doctor-disable-next-line react-doctor/rn-no-scrollview-mapped-list */}
         {friends.map((f) => (
           <Pressable
             key={f.id}

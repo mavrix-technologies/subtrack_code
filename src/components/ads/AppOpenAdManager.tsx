@@ -1,17 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
-import { getGoogleMobileAdsModule } from '@/components/ads/mobileAdsModule';
+import { useAppOpenAd, TestIds } from 'react-native-google-mobile-ads';
+import { getGoogleMobileAdsModule } from './mobileAdsModule';
 
 // Replace with your actual AdMob App Open Ad Unit ID for production
 const ANDROID_APP_OPEN_AD_UNIT_ID = 'ca-app-pub-6003470714469240/1234567890'; 
 let hasShownAppOpenAdThisSession = false;
 
 function AppOpenAdImpl() {
-  "use no memo";
-
-  const ads = getGoogleMobileAdsModule()!;
-  const unitId = __DEV__ ? ads.TestIds.APP_OPEN : ANDROID_APP_OPEN_AD_UNIT_ID;
-  const { isLoaded, isClosed, load, show } = ads.useAppOpenAd(unitId, {
+  const unitId = __DEV__ ? TestIds.APP_OPEN : ANDROID_APP_OPEN_AD_UNIT_ID;
+  const { isLoaded, isClosed, load, show } = useAppOpenAd(unitId, {
     requestNonPersonalizedAdsOnly: false,
   });
   const isShowingAd = useRef(false);

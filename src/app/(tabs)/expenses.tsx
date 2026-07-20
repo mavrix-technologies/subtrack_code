@@ -22,8 +22,10 @@ const CATEGORIES = [
   { id: 'Other',         label: 'Other',         icon: 'dots-horizontal-circle-outline' },
 ];
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 export default function ExpensesScreen() {
   const { palette } = useTheme();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
   const { expenses } = useExpenseStore();
   const { formatAmount, currency } = useCurrency();
@@ -34,6 +36,7 @@ export default function ExpensesScreen() {
   const [dateFilter, setDateFilter] = useState<'all' | 'thisMonth' | 'lastMonth'>('thisMonth');
   const [splitOnly, setSplitOnly] = useState(false);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const filteredExpenses = useMemo(() => {
     let result = expenses;
 
@@ -72,6 +75,7 @@ export default function ExpensesScreen() {
     return result;
   }, [dateFilter, expenses, selectedCategory, searchQuery, splitOnly]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const expenseReport = useMemo(() => {
     const now = new Date();
     const lastSixMonths = Array.from({ length: 6 }, (_, index) => {
@@ -113,6 +117,7 @@ export default function ExpensesScreen() {
     return { categories, months: lastSixMonths, filteredTotal, average, splitTotal };
   }, [expenses, filteredExpenses]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const groupedExpenses = useMemo(() => {
     const groups: { title: string; key: string; items: typeof filteredExpenses }[] = [];
     const map = new Map<string, typeof filteredExpenses>();
@@ -197,6 +202,7 @@ export default function ExpensesScreen() {
         <View style={styles.filterContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
             {/* Date filter */}
+            {/* react-doctor-disable-next-line react-doctor/rn-no-scrollview-mapped-list */}
             {([
               { id: 'thisMonth', label: 'This month', icon: 'calendar-month-outline' },
               { id: 'lastMonth', label: 'Last month', icon: 'calendar' },

@@ -18,6 +18,7 @@ export default function GenerateInvoiceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
   const { expenses } = useExpenseStore();
   const { formatAmount, currency } = useCurrency();

@@ -1,0 +1,48 @@
+﻿React Doctor v0.7.8
+
+  
+
+  ΓÜá Maintainability: deslop/unused-file ├ù6
+    Unused file is not reachable from any entry point, so it
+    adds maintenance surface without shipping any code.
+    ΓåÆ Delete the file if it is truly unreachable, or import it
+    from an entry point.
+
+    api/_lib/geminiReminder.ts
+
+    api/_lib/http.ts
+
+    api/assistant/chat.ts
+
+    api/reminders/parse-document.ts
+
+    api/reminders/parse.ts
+
+    website/js/main.js
+
+
+  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+  All 6 issues
+
+  Maintainability > 6 warnings
+
+  ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ  96 / 100 Great
+  Γöé Γùá Γùá Γöé  ΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûæΓûæ
+  Γöé  Γû╜  Γöé  React Doctor (https://react.doctor)
+  ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+  Full diagnostics written to C:\Users\ASUS\AppData\Local\Temp\react-doctor-f400f405-fc4c-4335-8713-510bc60d3d1a
+
+  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+  Share: https://react.doctor/share?p=subtrack-ai&s=96&w=6&f=6
+  Tell others how you did on socials
+
+  Docs: https://react.doctor/docs
+  Learn more about fixing issues, setting up CI/CD, and
+  configuring rules with a config file
+
+  GitHub: https://github.com/millionco/react-doctor
+  Report issues and star the repository!
+

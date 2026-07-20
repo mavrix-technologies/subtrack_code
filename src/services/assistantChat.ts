@@ -33,16 +33,15 @@ function localFallback(message: string, errorDetail?: string): AssistantChatResu
     return {
       intent: 'answer',
       reminder: null,
-      reply: `Gemini API quota limit exceeded (Too Many Requests).\n\nTo prevent this, link a Google Cloud Billing account in Google AI Studio (https://aistudio.google.com/) to upgrade your API key to the Pay-as-you-go tier.`,
+      reply: 'The AI assistant is temporarily busy. Please try again in a moment.',
     };
   }
 
-  // If there's a 403 error specifically pointing to Gemini API disabled, show guidance to the developer
   if (errorDetail && errorDetail.includes('generativelanguage.googleapis.com')) {
     return {
       intent: 'answer',
       reminder: null,
-      reply: `Gemini API is disabled or key is not set. To enable 100% Gemini replies:\n\n1. Visit the Google Cloud Console link below to enable the Gemini API for your project:\nhttps://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview?project=178143403316\n\n2. Or add a valid key to your .env file:\nEXPO_PUBLIC_GEMINI_API_KEY=your_key_here`,
+      reply: 'The AI assistant is not available right now. Please try again later.',
     };
   }
 
@@ -169,13 +168,14 @@ Return exactly this JSON shape:
   return parseAssistantResponse(text);
 }
 
-/**
- * Fallback direct client-side Gemini Developer API call
- */
-async function clientSideGeminiCall(message: string, history: AssistantChatMessage[], customKey?: string): Promise<AssistantChatResult> {
-  const geminiKey = customKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
+async function clientSideGeminiCall(
+  message: string,
+  history: AssistantChatMessage[],
+  customKey: string
+): Promise<AssistantChatResult> {
+  const geminiKey = customKey.trim();
   if (!geminiKey) {
-    throw new Error('No Gemini API Key found in env variables.');
+    throw new Error('No Gemini API key provided.');
   }
 
   const now = new Date().toISOString();
@@ -223,13 +223,9 @@ Return exactly this JSON shape:
       parts: [{ text: item.text }]
     }));
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
-
-  const response = await fetch(url, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [
         ...formattedHistory,
@@ -251,10 +247,9 @@ Return exactly this JSON shape:
     try {
       parsedError = JSON.parse(errorText);
     } catch {
-      // ignore
+      // ignore non-JSON errors
     }
-    const messageStr = parsedError?.error?.message || errorText;
-    throw new Error(messageStr);
+    throw new Error(parsedError?.error?.message || errorText);
   }
 
   const result = await response.json();
@@ -267,25 +262,21 @@ Return exactly this JSON shape:
 }
 
 /**
- * Main chat router supporting Vertex AI -> Developer Gemini API -> Vercel Backend Server -> Local Fallback
+ * Main chat router supporting Firebase Vertex AI -> backend API -> local fallback.
  */
 export async function sendAssistantChat(input: ChatInput, customKey?: string): Promise<AssistantChatResult> {
   let errorMsg = '';
 
-  // 1. If a custom user API key is provided, try direct Gemini call with that key
-  if (customKey) {
+  if (customKey?.trim()) {
     try {
-      console.log("[Assistant Chat] Requesting direct client-side Gemini with user's API key...");
-      const result = await clientSideGeminiCall(input.message, input.history || [], customKey);
-      return result;
+      console.log('[Assistant Chat] Requesting Gemini with optional user API key...');
+      return await clientSideGeminiCall(input.message, input.history || [], customKey);
     } catch (clientError: any) {
-      console.warn("[Assistant Chat] User custom Gemini API key call failed:", clientError);
+      console.warn('[Assistant Chat] Optional Gemini API key failed, trying app AI:', clientError);
       errorMsg = clientError?.message || String(clientError);
-      return localFallback(input.message, `Custom API Key Error: ${errorMsg}`);
     }
   }
 
-  // 2. Try Vertex AI for Firebase (Production Implementation - Secure and Scalable)
   try {
     const model = getVertexModel();
     if (model) {
@@ -294,21 +285,10 @@ export async function sendAssistantChat(input: ChatInput, customKey?: string): P
       return result;
     }
   } catch (vertexError: any) {
-    console.warn('[Assistant Chat] Vertex AI failed, falling back to direct Gemini API key:', vertexError);
+    console.warn('[Assistant Chat] Vertex AI failed, trying backend API:', vertexError);
     errorMsg = vertexError?.message || String(vertexError);
   }
 
-  // 2. Try direct client-side Gemini API call with Developer API key
-  try {
-    console.log('[Assistant Chat] Requesting direct client-side Gemini API...');
-    const result = await clientSideGeminiCall(input.message, input.history || []);
-    return result;
-  } catch (clientError: any) {
-    console.warn('[Assistant Chat] Client-side Gemini failed, trying backend API:', clientError);
-    errorMsg = clientError?.message || String(clientError);
-  }
-
-  // 3. Try the Vercel backend API as a tertiary fallback
   if (AI_ASSISTANT_API_URL) {
     try {
       console.log('[Assistant Chat] Requesting Vercel backend API...');
@@ -338,6 +318,5 @@ export async function sendAssistantChat(input: ChatInput, customKey?: string): P
     }
   }
 
-  // 4. Fallback to local rule-based parsing with developer guidance
   return localFallback(input.message, errorMsg);
 }

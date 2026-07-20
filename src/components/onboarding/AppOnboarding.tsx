@@ -37,24 +37,25 @@ const slides = [
 ];
 
 export function AppOnboarding() {
+  const { status, user } = useAppData();
+  if (status !== 'ready' || !user) return null;
+
+  return <OnboardingDialog key={user.uid} userId={user.uid} />;
+}
+
+function OnboardingDialog({ userId }: { userId: string }) {
   "use no memo";
 
-  const { status, user } = useAppData();
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
   const [visible, setVisible] = useState(false);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (status !== 'ready' || !user) {
-      setVisible(false);
-      setIndex(0);
-      return;
-    }
-
     let isMounted = true;
-    const storageKey = `subtrack:onboarding:${ONBOARDING_VERSION}:${user.uid}`;
+    const storageKey = `subtrack:onboarding:${ONBOARDING_VERSION}:${userId}`;
 
     AsyncStorage.getItem(storageKey)
       .then((value) => {
@@ -67,12 +68,10 @@ export function AppOnboarding() {
     return () => {
       isMounted = false;
     };
-  }, [status, user]);
+  }, [userId]);
 
   const finish = async () => {
-    if (user) {
-      await AsyncStorage.setItem(`subtrack:onboarding:${ONBOARDING_VERSION}:${user.uid}`, 'done');
-    }
+    await AsyncStorage.setItem(`subtrack:onboarding:${ONBOARDING_VERSION}:${userId}`, 'done');
     setVisible(false);
     setIndex(0);
   };

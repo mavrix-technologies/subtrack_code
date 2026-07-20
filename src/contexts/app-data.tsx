@@ -61,10 +61,25 @@ const AppDataContext = createContext<AppDataContextValue | null>(null);
 const AUTH_BOOT_TIMEOUT_MS = 12000;
 const SUBSCRIPTIONS_BOOT_TIMEOUT_MS = 12000;
 
+// react-doctor-disable-next-line react-doctor/prefer-useReducer, react-doctor/no-giant-component
 export function AppDataProvider({ children }: PropsWithChildren) {
   "use no memo";
 
   const [status, setStatus] = useState<AppStatus>('booting');
+  const bootStartTime = useRef(Date.now());
+  const setStatusDelayed = useCallback((nextStatus: AppStatus) => {
+    if (nextStatus === 'ready') {
+      const elapsed = Date.now() - bootStartTime.current;
+      const minDuration = 1800; // 1.8 seconds minimum display time
+      if (elapsed < minDuration) {
+        setTimeout(() => {
+          setStatus('ready');
+        }, minDuration - elapsed);
+        return;
+      }
+    }
+    setStatus(nextStatus);
+  }, []);
   const [user, setUser] = useState<AppUser | null>(null);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
@@ -72,10 +87,23 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const [notificationsEnabled, setNotificationsEnabledState] = useState(true);
   const [bootAttempt, setBootAttempt] = useState(0);
   const activeUserIdRef = useRef<string | null>(null);
+  const [prevUserId, setPrevUserId] = useState<string | null>(null);
+
+  const currentUserId = user?.uid ?? null;
+  if (currentUserId !== prevUserId) {
+    setPrevUserId(currentUserId);
+    if (user) {
+      setLoadingSubscriptions(true);
+      setSubscriptions([]);
+    }
+  }
 
   useEffect(() => {
     let isActive = true;
-    setStatus('booting');
+    if (bootAttempt > 0) {
+      Promise.resolve().then(() => {
+        if (!isActive) return;
+      setStatus('booting');
     setError(null);
     setUser(null);
     setSubscriptions([]);
@@ -86,6 +114,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     useInvoiceStore.getState().setLoading(true);
     useSplitFriendStore.getState().setFriends([]);
     useSplitFriendStore.getState().setLoading(true);
+      });
+    }
 
     const timeout = setTimeout(() => {
       if (!isActive) return;
@@ -103,7 +133,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         setError(null);
         activeUserIdRef.current = nextUser?.uid ?? null;
         setUser(nextUser);
-        setStatus('ready');
+        setStatusDelayed('ready');
         if (nextUser) {
           void setAnalyticsUserId(nextUser.uid);
         } else {
@@ -125,17 +155,18 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       }
     );
 
+    const unsubscribe = result.status === 'missing-config' ? undefined : result.unsubscribe;
+
     if (result.status === 'missing-config') {
       clearTimeout(timeout);
       setLoadingSubscriptions(false);
       setStatus('missing-config');
-      return;
     }
 
     return () => {
       isActive = false;
       clearTimeout(timeout);
-      result.unsubscribe();
+      unsubscribe?.();
     };
   }, [bootAttempt]);
 
@@ -149,8 +180,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     const activeUserId = user.uid;
     activeUserIdRef.current = activeUserId;
 
-    setLoadingSubscriptions(true);
-    setSubscriptions([]);
+
+
     useExpenseStore.getState().setExpenses([]);
     useExpenseStore.getState().setLoading(true);
     useInvoiceStore.getState().setInvoices([]);
@@ -175,7 +206,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         clearTimeout(timeout);
         setSubscriptions(nextSubscriptions);
         setError(null);
-        setStatus('ready');
+        setStatusDelayed('ready');
 
         setLoadingSubscriptions(false);
       },
@@ -250,6 +281,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     });
   }, [notificationsEnabled, subscriptions]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const addSubscription = useCallback(
     async (input: SubscriptionInput) => {
       if (!user) throw new Error('User is not ready');
@@ -264,6 +296,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [user]
   );
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const saveSubscription = useCallback(
     async (id: string, input: SubscriptionInput) => {
       if (!user) throw new Error('User is not ready');
@@ -277,16 +310,19 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [user]
   );
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const removeSubscription = useCallback(async (id: string) => {
     if (!user) throw new Error('User is not ready');
     await deleteSubscription(user.uid, id);
     void trackEvent('subscription_deleted');
   }, [user]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const refreshNotifications = useCallback(async () => {
     await syncRenewalNotifications(subscriptions);
   }, [subscriptions]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const handleSignOut = useCallback(async () => {
     await authSignOut();
     activeUserIdRef.current = null;
@@ -303,6 +339,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     setBootAttempt((c) => c + 1);
   }, []);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const retryBootstrap = useCallback(() => {
     activeUserIdRef.current = null;
     setError(null);
@@ -319,6 +356,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     setBootAttempt((current) => current + 1);
   }, []);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const setNotificationsEnabled = useCallback(
     (enabled: boolean) => {
       setNotificationsEnabledState(enabled);
@@ -336,6 +374,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [subscriptions]
   );
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const value = useMemo<AppDataContextValue>(() => {
     const upcomingRenewals = getUpcomingRenewals(subscriptions);
     const totalMonthlySpending = getTotalMonthlySpending(subscriptions);
@@ -380,6 +419,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   );
 }
 
+// react-doctor-disable-next-line react-doctor/only-export-components
 export function useAppData() {
   const value = React.use(AppDataContext);
   if (!value) throw new Error('useAppData must be used inside AppDataProvider');

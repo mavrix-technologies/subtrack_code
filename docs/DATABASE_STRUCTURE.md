@@ -86,6 +86,34 @@ users/{uid}/preferences/invoiceBrand
   signatureLabel?: string
   filePrefix?: string
   updatedAt: Timestamp
+
+users/{uid}/preferences/assistant
+  geminiApiKey?: string | null
+  updatedAt: Timestamp
+
+users/{uid}/reminders/{reminderId}
+  userId: string
+  title: string
+  type: "flight" | "meeting" | "medicine" | "bill" | "subscription" | "task" | "exam" | "travel" | "event"
+  category: "travel" | "subscription" | "utility" | "work" | "health" | "education" | "family" | "personal" | "finance"
+  datetime: ISO date-time string | null
+  location: string | null
+  notes: string | null
+  repeat: "none" | "daily" | "weekly" | "monthly" | "yearly"
+  alertMode?: "sound" | "alarm"
+  confidence: number
+  smartReminders: array
+  status: "active" | "done" | "dismissed"
+  notificationIds: array
+  createdAt: Timestamp
+  updatedAt: Timestamp
+
+users/{uid}/assistantSessions/{sessionId}
+  userId: string
+  title: string
+  messages: array
+  updatedAt: number
+  createdAt: number
 ```
 
 ## Query Plan
@@ -95,6 +123,8 @@ Current realtime listeners use ordered subcollection queries:
 - `users/{uid}/subscriptions`: `orderBy(nextBillingDate, asc)`
 - `users/{uid}/expenses`: `orderBy(date, desc)`
 - `users/{uid}/invoices`: `orderBy(createdAt, desc)`
+- `users/{uid}/reminders`: `orderBy(datetime, asc)`
+- `users/{uid}/assistantSessions`: `orderBy(updatedAt, desc)`
 
 `firestore.indexes.json` also includes composite indexes for planned filters:
 

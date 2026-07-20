@@ -8,6 +8,7 @@ export const INVOICE_COLLECTION = 'invoices';
 export const PREFERENCE_COLLECTION = 'preferences';
 export const SPLIT_FRIEND_COLLECTION = 'splitFriends';
 export const REMINDER_COLLECTION = 'reminders';
+export const ASSISTANT_SESSION_COLLECTION = 'assistantSessions';
 
 export function userDoc(db: Firestore, userId: string) {
   return doc(db, USER_COLLECTION, userId);
@@ -63,4 +64,12 @@ export function userReminders(db: Firestore, userId: string) {
 
 export function userReminderDoc(db: Firestore, userId: string, reminderId: string) {
   return doc(userReminders(db, userId), reminderId);
+}
+
+export function userAssistantSessions(db: Firestore, userId: string) {
+  return collection(userDoc(db, userId), ASSISTANT_SESSION_COLLECTION);
+}
+
+export function userAssistantSessionDoc(db: Firestore, userId: string, sessionId: string) {
+  return doc(userAssistantSessions(db, userId), sessionId);
 }

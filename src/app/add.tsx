@@ -49,11 +49,13 @@ function getPaymentMethodIcon(method: string) {
   return 'dots-horizontal-circle-outline';
 }
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 export default function AddScreen() {
   "use no memo";
 
   const { palette } = useTheme();
   const { currency } = useCurrency();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -616,6 +618,7 @@ export default function AddScreen() {
                   <Text style={[styles.sectionLabelText, { color: palette.primary }]}>Web Results</Text>
                 </View>
               )}
+              {/* react-doctor-disable-next-line react-doctor/rn-no-scrollview-mapped-list */}
               {internetResults.map(company => {
                 const logoUrl = `https://unavatar.io/${company.domain}?fallback=https://www.google.com/s2/favicons?domain=${company.domain}&sz=256`;
                 return (

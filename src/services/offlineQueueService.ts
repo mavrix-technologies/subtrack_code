@@ -49,19 +49,27 @@ export async function processOfflineQueue(userId: string): Promise<boolean> {
 
     const failedIds: string[] = [];
 
-    for (const item of userQueue) {
-      try {
+    const results = await Promise.allSettled(
+      userQueue.map(async (item) => {
         await createInvoice(item.userId, item.payload);
+        return item.id;
+      })
+    );
+
+    results.forEach((res, index) => {
+      const item = userQueue[index];
+      if (res.status === 'fulfilled') {
         console.log(`Uploaded queued invoice ${item.id} successfully!`);
-      } catch (uploadError) {
-        console.warn(`Failed to upload queued invoice ${item.id}, keeping in queue:`, uploadError);
+      } else {
+        console.warn(`Failed to upload queued invoice ${item.id}, keeping in queue:`, res.reason);
         failedIds.push(item.id);
       }
-    }
+    });
 
+    const failedSet = new Set(failedIds);
     // Keep failed items and items from other users
     const remainingQueue = queue.filter(
-      (item) => item.userId !== userId || failedIds.includes(item.id)
+      (item) => item.userId !== userId || failedSet.has(item.id)
     );
 
     await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingQueue));

@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 18.8.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -16,6 +16,13 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "channel": "preview"
+    },
+    "prebuild": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "app-bundle"
       },
       "channel": "preview"
     },

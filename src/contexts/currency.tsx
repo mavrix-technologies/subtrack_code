@@ -42,17 +42,26 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
 
   const { user } = useAppData();
   const [currency, setCurrencyState] = useState<CurrencyOption>(DEFAULT_CURRENCY);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(!user);
+  const [prevUserId, setPrevUserId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const currentUserId = user?.uid ?? null;
+  if (currentUserId !== prevUserId) {
+    setPrevUserId(currentUserId);
     if (!user) {
       setCurrencyState(DEFAULT_CURRENCY);
       setLoaded(true);
+    } else {
+      setLoaded(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!user) {
       return;
     }
 
     let isMounted = true;
-    setLoaded(false);
 
     AsyncStorage.getItem(currencyStorageKey(user.uid)).then(raw => {
       if (!isMounted) return;
@@ -83,6 +92,7 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
     };
   }, [user]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const setCurrency = useCallback((c: CurrencyOption) => {
     setCurrencyState(c);
     if (user) {
@@ -92,6 +102,7 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
     }
   }, [user]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const formatAmount = useCallback(
     (value: number) => {
       try {
@@ -107,6 +118,7 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
     [currency.code, currency.symbol, currency.locale]
   );
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const formatCompact = useCallback(
     (value: number) => {
       try {
@@ -124,6 +136,7 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
     [currency.code, currency.locale, formatAmount]
   );
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const value = useMemo(
     () => ({ currency, setCurrency, formatAmount, formatCompact, loaded }),
     [currency, setCurrency, formatAmount, formatCompact, loaded]
@@ -138,6 +151,7 @@ export function CurrencyProvider({ children }: PropsWithChildren) {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
+// react-doctor-disable-next-line react-doctor/only-export-components
 export function useCurrency() {
   const ctx = use(CurrencyContext);
   if (!ctx) throw new Error('useCurrency must be used within CurrencyProvider');
@@ -182,17 +196,26 @@ export function InvoiceBrandProvider({ children }: PropsWithChildren) {
 
   const { user } = useAppData();
   const [brand, setBrand] = useState<InvoiceBrand>(DEFAULT_BRAND);
-  const [brandLoading, setBrandLoading] = useState(true);
+  const [brandLoading, setBrandLoading] = useState(!!user);
+  const [prevBrandUserId, setPrevBrandUserId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const currentUserId = user?.uid ?? null;
+  if (currentUserId !== prevBrandUserId) {
+    setPrevBrandUserId(currentUserId);
     if (!user) {
       setBrand(DEFAULT_BRAND);
       setBrandLoading(false);
+    } else {
+      setBrandLoading(true);
+    }
+  }
+
+  useEffect(() => {
+    if (!user) {
       return;
     }
 
     let isMounted = true;
-    setBrandLoading(true);
 
     AsyncStorage.getItem(brandStorageKey(user.uid))
       .then(raw => {
@@ -228,6 +251,7 @@ export function InvoiceBrandProvider({ children }: PropsWithChildren) {
     };
   }, [user]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const saveBrand = useCallback(async (updates: Partial<InvoiceBrand>) => {
     const next = { ...brand, ...updates };
     setBrand(next);
@@ -237,6 +261,7 @@ export function InvoiceBrandProvider({ children }: PropsWithChildren) {
     }
   }, [brand, user]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const resetBrand = useCallback(async () => {
     setBrand(DEFAULT_BRAND);
     if (user) {
@@ -245,6 +270,7 @@ export function InvoiceBrandProvider({ children }: PropsWithChildren) {
     }
   }, [user]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const brandValue = useMemo(() => ({ brand, brandLoading, saveBrand, resetBrand }), [brand, brandLoading, saveBrand, resetBrand]);
 
   return (
@@ -254,6 +280,7 @@ export function InvoiceBrandProvider({ children }: PropsWithChildren) {
   );
 }
 
+// react-doctor-disable-next-line react-doctor/only-export-components
 export function useInvoiceBrand() {
   const ctx = use(InvoiceBrandContext);
   if (!ctx) throw new Error('useInvoiceBrand must be used within InvoiceBrandProvider');

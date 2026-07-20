@@ -23,9 +23,11 @@ const createItemDraft = (): ItemDraft => ({
   qty: 1,
 });
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 export default function CreateInvoiceScreen() {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const S = useMemo(() => createStyles(palette), [palette]);
   const { user } = useAppData();
   const { currency } = useCurrency();
@@ -132,6 +134,7 @@ export default function CreateInvoiceScreen() {
   const itemPriceRefs = useRef<(TextInput | null)[]>([]);
   const itemDescRefs  = useRef<(TextInput | null)[]>([]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const validItems: InvoiceItem[] = useMemo(() => {
     return items.reduce<InvoiceItem[]>((acc, i) => {
       const name = i.name.trim();
@@ -145,12 +148,15 @@ export default function CreateInvoiceScreen() {
     }, []);
   }, [items]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const totals = useMemo(() =>
     computeInvoiceTotals(validItems, parseFloat(taxRate) || 0, discountType, parseFloat(discountValue) || 0),
     [validItems, taxRate, discountType, discountValue]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const invoiceNumber = useMemo(() => generateInvoiceNumber(invoices), [invoices]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const handleSave = useCallback(async () => {
     Keyboard.dismiss();
     if (!clientName.trim()) { Alert.alert('Missing client', 'Enter a client name.'); return; }

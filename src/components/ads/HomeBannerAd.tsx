@@ -1,4 +1,4 @@
-import { getGoogleMobileAdsModule } from '@/components/ads/mobileAdsModule';
+import { getGoogleMobileAdsModule } from './mobileAdsModule';
 import { useTheme } from '@/contexts/theme';
 import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';

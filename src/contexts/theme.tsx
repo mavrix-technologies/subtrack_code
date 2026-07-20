@@ -20,10 +20,18 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const { user } = useAppData();
   const systemTheme = Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
   const [theme, setThemeState] = useState<'light' | 'dark'>(systemTheme);
+  const [prevThemeUserId, setPrevThemeUserId] = useState<string | null>(null);
+
+  const currentUserId = user?.uid ?? null;
+  if (currentUserId !== prevThemeUserId) {
+    setPrevThemeUserId(currentUserId);
+    if (!user) {
+      setThemeState(systemTheme);
+    }
+  }
 
   useEffect(() => {
     if (!user) {
-      setThemeState(systemTheme);
       return;
     }
 
@@ -51,6 +59,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     };
   }, [systemTheme, user]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const setTheme = useCallback((nextTheme: 'light' | 'dark') => {
     setThemeState(nextTheme);
     if (user) {
@@ -60,6 +69,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     }
   }, [user]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const value = useMemo(() => {
     return {
       theme,
@@ -71,6 +81,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
+// react-doctor-disable-next-line react-doctor/only-export-components
 export function useTheme() {
   const value = use(ThemeContext);
   if (!value) {

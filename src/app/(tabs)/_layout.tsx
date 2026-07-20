@@ -74,6 +74,8 @@ function TabButton({
         </View>
         <Text
           style={{
+            // react-doctor-disable-next-line react-doctor/no-tiny-text
+            // react-doctor-disable-next-line react-doctor/no-tiny-text
             fontSize: 10,
             fontWeight: focused ? '800' : '600',
             color: focused ? activeColor : inactiveColor,
@@ -101,8 +103,10 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      style={{
-        position: 'absolute',
+      style={
+        // react-doctor-disable-next-line react-doctor/no-inline-exhaustive-style
+        {
+          position: 'absolute',
         left: 0,
         right: 0,
         bottom: 0,

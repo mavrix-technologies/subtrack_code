@@ -58,6 +58,9 @@ type Props = {
   onSaveRowAsFriend: (index: number) => void | Promise<void>;
 };
 
+const participantLabel = (i: number) => (i === 0 ? 'You' : `Person ${i + 1}`);
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 export function SplitExpenseEditor({
   palette,
   themeMode,
@@ -78,13 +81,12 @@ export function SplitExpenseEditor({
   onRemoveParticipant,
   onSaveRowAsFriend,
 }: Props) {
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   /** Inset surfaces inside the main card — visible band on light, inputBg on dark */
   const insetBg = themeMode === 'dark' ? palette.inputBg : '#F4F5F7';
   const fieldBg = palette.background;
-
-  const participantLabel = (i: number) => (i === 0 ? 'You' : `Person ${i + 1}`);
 
   const customAllocOk = remaining === 0 && totalAmt > 0;
 

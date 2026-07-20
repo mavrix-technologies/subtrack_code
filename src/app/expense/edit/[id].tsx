@@ -38,13 +38,16 @@ const CATEGORIES = [
 
 const COLORS = ['#6366F1','#EC4899','#F59E0B','#10B981','#3B82F6','#EF4444','#8B5CF6','#14B8A6'];
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 export default function EditExpenseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { palette, theme } = useTheme();
   const { currency } = useCurrency();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const scrollPaddingBottom = useMemo(() => Math.max(insets.bottom, 12) + 24, [insets.bottom]);
 
   const { user } = useAppData();
@@ -131,6 +134,7 @@ export default function EditExpenseScreen() {
     }
   };
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const handleSave = useCallback(async () => {
     if (!expense) return;
     const num = parseFloat(amount);

@@ -26,6 +26,7 @@ export default function CreateSplitFriendScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAppData();
   const navigation = useNavigation();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   const [displayName, setDisplayName] = useState('');
@@ -34,6 +35,7 @@ export default function CreateSplitFriendScreen() {
   const [color, setColor] = useState(COLORS[0]);
   const [saving, setSaving] = useState(false);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const save = useCallback(async () => {
     const name = displayName.trim();
     if (!name) {

@@ -39,16 +39,14 @@ export default function ExpenseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { palette, theme } = useTheme();
   const insets = useSafeAreaInsets();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
-  const actionTones = useMemo(
-    () => ({
-      remindBg: theme === 'dark' ? '#422006' : '#FEF3C7',
-      remindBorder: '#D97706',
-      remindFg: theme === 'dark' ? '#FDE68A' : '#92400E',
-      deleteBg: theme === 'dark' ? '#3F1F1F' : '#FEE2E2',
-    }),
-    [theme]
-  );
+  const actionTones = {
+    remindBg: theme === 'dark' ? '#422006' : '#FEF3C7',
+    remindBorder: '#D97706',
+    remindFg: theme === 'dark' ? '#FDE68A' : '#92400E',
+    deleteBg: theme === 'dark' ? '#3F1F1F' : '#FEE2E2',
+  };
   const { expenses } = useExpenseStore();
   const { formatAmount, currency } = useCurrency();
 

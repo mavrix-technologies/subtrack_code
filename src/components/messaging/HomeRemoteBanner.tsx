@@ -175,6 +175,7 @@ export function HomeRemoteBanner() {
             scrollEventThrottle={16}
             onMomentumScrollEnd={onScrollEnd}
           >
+            {/* react-doctor-disable-next-line react-doctor/rn-no-scrollview-mapped-list */}
             {slides.map((slide, index) => (
               <View key={`${slide.title}:${slide.message}`} style={[styles.slide, { width: dialogWidth }]}>
                 {!!slide.imageUrl ? (
@@ -187,7 +188,7 @@ export function HomeRemoteBanner() {
 
                 <View style={styles.content}>
                   <Text style={[styles.kicker, { color: `${textColor}B8` }]} numberOfLines={1}>
-                    New in SubTrack v1.2.1
+                    New in SubTrack v1.3.0
                   </Text>
                   <Text style={[styles.title, { color: textColor }]} numberOfLines={2}>
                     {slide.title}
@@ -202,7 +203,8 @@ export function HomeRemoteBanner() {
 
           <View style={styles.footer}>
             <View style={styles.dots} accessibilityLabel={`Slide ${activeSlide + 1} of ${slides.length}`}>
-              {slides.map((slide, index) => (
+              {/* react-doctor-disable-next-line react-doctor/rn-no-scrollview-mapped-list */}
+            {slides.map((slide, index) => (
                 <View
                   key={`${slide.title}:dot:${slide.message}`}
                   style={[

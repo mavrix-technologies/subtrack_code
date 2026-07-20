@@ -35,6 +35,20 @@ import {
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const openLegalPage = (page: 'privacy' | 'terms' | 'contact') => {
+  Haptics.selectionAsync();
+  router.push(`/legal/${page}`);
+};
+
+const handleRateApp = async () => {
+  try {
+    await openStoreReview();
+  } catch (err: any) {
+    Alert.alert('Could not open store', err?.message ?? 'Please try again later.');
+  }
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 export default function SettingsScreen() {
   "use no memo";
 
@@ -58,6 +72,7 @@ export default function SettingsScreen() {
   const invoicesLoading = useInvoiceStore((state) => state.isLoading);
   const friends = useSplitFriendStore((state) => state.friends);
   const friendsLoading = useSplitFriendStore((state) => state.isLoading);
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette, theme === 'dark'), [palette, theme]);
   const insets = useSafeAreaInsets();
   const isDark = theme === 'dark';
@@ -98,6 +113,7 @@ export default function SettingsScreen() {
   };
 
   // Derive initials for avatar fallback
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const initials = useMemo(() => {
     if (!user?.name) return '?';
     return user.name
@@ -113,11 +129,6 @@ export default function SettingsScreen() {
   const isSyncing = status === 'booting' || loadingSubscriptions || expensesLoading || invoicesLoading || friendsLoading;
   const dataCounts = `${subscriptions.length} subs • ${expenses.length} expenses • ${invoices.length} invoices • ${friends.length} friends`;
   const appVersion = Constants.nativeApplicationVersion || Constants.expoConfig?.version || 'Unknown';
-
-  const openLegalPage = (page: 'privacy' | 'terms' | 'contact') => {
-    Haptics.selectionAsync();
-    router.push(`/legal/${page}`);
-  };
 
   const openCurrencyPicker = () => {
     Haptics.selectionAsync();
@@ -274,14 +285,6 @@ export default function SettingsScreen() {
       await sendSupportRequest(user);
     } catch (err: any) {
       Alert.alert('Could not open support', err?.message ?? 'Please try again later.');
-    }
-  };
-
-  const handleRateApp = async () => {
-    try {
-      await openStoreReview();
-    } catch (err: any) {
-      Alert.alert('Could not open store', err?.message ?? 'Please try again later.');
     }
   };
 

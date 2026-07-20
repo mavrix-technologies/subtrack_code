@@ -1,7 +1,6 @@
 import { subtrackTheme } from '@/constants/subtrack-theme';
-import { getGoogleMobileAdsModule } from '@/components/ads/mobileAdsModule';
+import { getGoogleMobileAdsModule } from '../components/ads/mobileAdsModule';
 import { StartupRewardedInterstitialAd } from '@/components/ads/StartupRewardedInterstitialAd';
-import { AppOpenAdManager } from '@/components/ads/AppOpenAdManager';
 import { LegacyUpdateAlert } from '@/components/messaging/LegacyUpdateAlert';
 import { AlarmOverlay } from '@/components/AlarmOverlay';
 import { AppOnboarding } from '@/components/onboarding/AppOnboarding';
@@ -17,12 +16,22 @@ import { router, Stack, usePathname, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { AppState, Platform, Text, View, ActivityIndicator } from 'react-native';
+import { AppState, Platform, Text, View, ActivityIndicator, Image, Animated, Easing, StyleSheet, Dimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperProvider } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Keep splash visible until auth resolves when the native splash is available.
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+const AppOpenAdManager = (() => {
+  if (Platform.OS !== 'android' && Platform.OS !== 'ios') return () => null;
+  const ads = getGoogleMobileAdsModule();
+  if (!ads) return () => null;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('@/components/ads/AppOpenAdManager').AppOpenAdManager;
+})();
 installCrashReporting();
 
 function AuthGate() {
@@ -55,6 +64,7 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
   const isAuthenticating = useRef(false);
   const authResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const authenticate = useCallback(async () => {
     if (isAuthenticating.current) return;
     const enabled = await AsyncStorage.getItem('biometric_lock_enabled');
@@ -87,9 +97,11 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
   }, [setIsLockEnabled]);
 
   useEffect(() => {
-    authenticate();
+    Promise.resolve().then(() => {
+      void authenticate();
+    });
     const subscription = AppState.addEventListener('change', nextAppState => {
-      if (appState.current === 'background' && nextAppState === 'active') authenticate();
+      if (appState.current === 'background' && nextAppState === 'active') void authenticate();
       appState.current = nextAppState;
     });
     const timerId = authResetTimer.current;
@@ -97,7 +109,8 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
       subscription.remove();
       if (timerId) clearTimeout(timerId);
     };
-  }, [authenticate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (isLockEnabled === undefined) {
     return (
@@ -159,12 +172,138 @@ function AnalyticsInitializer() {
 function ThemedStack() {
   const { palette, theme } = useTheme();
   const { status, user } = useAppData();
+  const [launchVisible, setLaunchVisible] = useState(true);
 
-  if (status === 'booting') {
-    return <View style={{ flex: 1, backgroundColor: palette.background }} />;
-  }
+  // Animation values
+  const { height: screenHeight } = Dimensions.get('window');
+  
+  const sOpacity = useRef(new Animated.Value(0)).current;
+  const sScale = useRef(new Animated.Value(0.7)).current;
+  const restTextWidth = useRef(new Animated.Value(0)).current;
+  const restTextOpacity = useRef(new Animated.Value(0)).current;
+  const dotScale = useRef(new Animated.Value(0)).current;
+  const dotTranslateY = useRef(new Animated.Value(0)).current;
+  const screenOpacity = useRef(new Animated.Value(1)).current;
 
-  return (
+  useEffect(() => {
+    // Hide native splash screen immediately
+    SplashScreen.hideAsync().catch(() => undefined);
+
+    const anim = Animated.sequence([
+      // 1. Fade in and scale up the "s" letter
+      Animated.parallel([
+        Animated.timing(sOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: false,
+        }),
+        Animated.timing(sScale, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: false,
+        }),
+      ]),
+      // Small pause
+      Animated.delay(300),
+
+      // 2. Expand "ubtrack" from left to right (width 0 -> 200)
+      Animated.parallel([
+        Animated.timing(restTextWidth, {
+          toValue: 200,
+          duration: 650,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }),
+        Animated.timing(restTextOpacity, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: false,
+        }),
+      ]),
+
+      // 3. Pause to display full name
+      Animated.delay(1000),
+
+      // 4. Minimize back to "s" (width 200 -> 0)
+      Animated.parallel([
+        Animated.timing(restTextWidth, {
+          toValue: 0,
+          duration: 550,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: false,
+        }),
+        Animated.timing(restTextOpacity, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: false,
+        }),
+      ]),
+
+      // Small pause
+      Animated.delay(200),
+
+      // 5. Convert "s" into dot (fade out "s", fade/scale in dot)
+      Animated.parallel([
+        Animated.timing(sOpacity, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: false,
+        }),
+        Animated.timing(sScale, {
+          toValue: 0.5,
+          duration: 350,
+          useNativeDriver: false,
+        }),
+        Animated.timing(dotScale, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: false,
+        }),
+      ]),
+
+      // Small pause before move
+      Animated.delay(200),
+
+      // 6. Move dot to the top
+      Animated.timing(dotTranslateY, {
+        toValue: -(screenHeight / 2 - 80),
+        duration: 600,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: false,
+      }),
+
+      // Small delay at the top
+      Animated.delay(150),
+
+      // 7. Explode dot to reveal screen (circular mask scale up)
+      Animated.parallel([
+        Animated.timing(dotScale, {
+          toValue: 180,
+          duration: 650,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: false,
+        }),
+        Animated.sequence([
+          Animated.delay(450),
+          Animated.timing(screenOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]),
+    ]);
+
+    anim.start(() => {
+      setLaunchVisible(false);
+    });
+
+    return () => {
+      anim.stop();
+    };
+  }, []);
+
+  const mainStack = (
     <>
       <StatusBar
         style={theme === 'dark' ? 'light' : 'dark'}
@@ -180,11 +319,9 @@ function ThemedStack() {
           headerTitleStyle: { fontWeight: '700', color: palette.text, fontSize: 17 },
           headerTintColor:  palette.primary,
           contentStyle:     { backgroundColor: palette.surface },
-          /** Native push/pop — was `none`, which made every screen change an instant cut */
           animation: 'slide_from_right',
           animationDuration: 280,
           gestureEnabled: true,
-          /** Edge-only swipe (iOS). Full-screen gestures fire during horizontal scroll/drag elsewhere. */
           fullScreenGestureEnabled: false,
           animationTypeForReplace: 'push',
         }}
@@ -208,6 +345,159 @@ function ThemedStack() {
         <Stack.Screen name="legal/[page]"         options={{ title: 'Legal' }} />
       </Stack>
     </>
+  );
+
+  if (!launchVisible) {
+    return mainStack;
+  }
+
+  const gradientColors = ['#F97316', '#EA580C'] as const;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: palette.background }}>
+      {/* Main app is mounted underneath and ready to display once launch completes */}
+      {status === 'ready' && mainStack}
+
+      {/* Animated Minimal Launch Screen Overlay */}
+      <Animated.View
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          zIndex: 9999,
+          opacity: screenOpacity,
+        }}
+      >
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          {/* Decorative Professional Watermark Icons */}
+          <View style={{ ...StyleSheet.absoluteFillObject, overflow: 'hidden' }} pointerEvents="none">
+            {/* Top row */}
+            <View style={{ position: 'absolute', top: '13%', left: '10%', transform: [{ rotate: '-15deg' }] }}>
+              <MaterialCommunityIcons name="spotify" size={32} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', top: '6%', left: '42%', transform: [{ rotate: '5deg' }] }}>
+              <MaterialCommunityIcons name="apple" size={30} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', top: '10%', right: '12%', transform: [{ rotate: '12deg' }] }}>
+              <MaterialCommunityIcons name="netflix" size={34} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+
+            {/* Upper-mid row */}
+            <View style={{ position: 'absolute', top: '20%', left: '26%', transform: [{ rotate: '-8deg' }] }}>
+              <MaterialCommunityIcons name="google" size={30} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', top: '18%', right: '28%', transform: [{ rotate: '15deg' }] }}>
+              <MaterialCommunityIcons name="microsoft" size={32} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', top: '27%', left: '7%', transform: [{ rotate: '15deg' }] }}>
+              <MaterialCommunityIcons name="facebook" size={32} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', top: '24%', right: '8%', transform: [{ rotate: '-10deg' }] }}>
+              <MaterialCommunityIcons name="youtube" size={30} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+
+            {/* Lower-mid row */}
+            <View style={{ position: 'absolute', bottom: '26%', left: '8%', transform: [{ rotate: '10deg' }] }}>
+              <MaterialCommunityIcons name="linkedin" size={32} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', bottom: '20%', left: '26%', transform: [{ rotate: '12deg' }] }}>
+              <MaterialCommunityIcons name="nintendo-switch" size={32} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', bottom: '22%', right: '28%', transform: [{ rotate: '-12deg' }] }}>
+              <MaterialCommunityIcons name="steam" size={32} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', bottom: '24%', right: '9%', transform: [{ rotate: '-15deg' }] }}>
+              <MaterialCommunityIcons name="dropbox" size={30} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+
+            {/* Bottom row */}
+            <View style={{ position: 'absolute', bottom: '14%', left: '11%', transform: [{ rotate: '-12deg' }] }}>
+              <MaterialCommunityIcons name="slack" size={34} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', bottom: '5%', left: '45%', transform: [{ rotate: '-5deg' }] }}>
+              <MaterialCommunityIcons name="github" size={32} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+            <View style={{ position: 'absolute', bottom: '11%', right: '11%', transform: [{ rotate: '18deg' }] }}>
+              <MaterialCommunityIcons name="twitch" size={34} color="rgba(255, 255, 255, 0.12)" />
+            </View>
+          </View>
+
+          <View style={{ justifyContent: 'center', alignItems: 'center', width: 280, height: 140, overflow: 'visible' }}>
+            {/* Logo Text container */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', overflow: 'visible' }}>
+              <Animated.Text
+                style={{
+                  color: '#FFFFFF',
+                  fontSize: 48,
+                  fontWeight: '900',
+                  letterSpacing: -1.5,
+                  opacity: sOpacity,
+                  transform: [{ scale: sScale }],
+                }}
+              >
+                s
+              </Animated.Text>
+              <Animated.View
+                style={{
+                  width: restTextWidth,
+                  opacity: restTextOpacity,
+                  overflow: 'hidden',
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: 48,
+                    fontWeight: '900',
+                    letterSpacing: -1.5,
+                    width: 220,
+                  }}
+                >
+                  ubtrack
+                </Text>
+              </Animated.View>
+            </View>
+
+            {/* Premium Brand Tagline */}
+            <Animated.Text
+              style={{
+                color: 'rgba(255, 255, 255, 0.85)',
+                fontSize: 10,
+                fontWeight: '800',
+                letterSpacing: 4,
+                marginTop: 8,
+                textTransform: 'uppercase',
+                opacity: restTextOpacity,
+              }}
+            >
+              smart manager
+            </Animated.Text>
+
+            {/* Converting Dot Overlay */}
+            <Animated.View
+              style={{
+                position: 'absolute',
+                width: 18,
+                height: 18,
+                borderRadius: 9,
+                backgroundColor: theme === 'dark' ? '#090D16' : '#FFFFFF',
+                transform: [
+                  { translateY: dotTranslateY },
+                  { scale: dotScale }
+                ],
+              }}
+            />
+          </View>
+        </LinearGradient>
+      </Animated.View>
+    </View>
   );
 }
 

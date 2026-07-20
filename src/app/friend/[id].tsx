@@ -27,14 +27,18 @@ export default function SplitFriendDetailScreen() {
   const { formatAmount } = useCurrency();
   const { expenses } = useExpenseStore();
   const { friends } = useSplitFriendStore();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   const friend = friends.find((f) => f.id === id);
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const related = useMemo(() => (friend ? getSplitExpensesForFriend(expenses, friend) : []), [expenses, friend]);
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const sortedRelated = useMemo(
     () => related.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [related]
   );
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const totalShare = useMemo(() => {
     if (!friend) return 0;
     return related.reduce((s, e) => s + sumFriendShareInExpense(e, friend), 0);

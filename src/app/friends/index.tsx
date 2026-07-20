@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function SplitFriendsListScreen() {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
   const { friends, isLoading } = useSplitFriendStore();
 

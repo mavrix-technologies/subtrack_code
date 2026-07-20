@@ -16,6 +16,7 @@ const STATUS_FILTERS = ['All', 'Unpaid', 'Paid', 'Overdue', 'Draft'] as const;
 type FilterKey = typeof STATUS_FILTERS[number];
 
 function useStatusCfg(palette: any) {
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   return useMemo<Record<InvoiceStatus, { label: string; color: string; icon: string }>>(() => ({
     draft:     { label: 'Draft',     color: palette.muted,   icon: 'file-outline' },
     unpaid:    { label: 'Unpaid',    color: palette.warning, icon: 'clock-outline' },
@@ -28,6 +29,7 @@ function RevenueChart({ invoices, palette, activeIdx, onSelect }: {
   invoices: Invoice[]; palette: any; activeIdx: number; onSelect: (i: number) => void;
 }) {
   const { width: chartWidth } = useWindowDimensions();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const buckets = useMemo(() => {
     const now = new Date();
     return Array.from({ length: 6 }, (_, i) => {
@@ -183,6 +185,7 @@ const cS = StyleSheet.create({
 });
 export default function InvoicesScreen() {
   const { palette } = useTheme();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const S = useMemo(() => createStyles(palette), [palette]);
   const { invoices, isLoading } = useInvoiceStore();
   const { formatAmount } = useCurrency();
@@ -198,6 +201,7 @@ export default function InvoicesScreen() {
     }
   }, [user]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const stats = useMemo(() => ({
     outstanding: invoices.filter(i => i.status === 'unpaid' || i.status === 'overdue').reduce((s, i) => s + (i.balanceDue ?? i.total), 0),
     collected:   invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0),
@@ -206,11 +210,13 @@ export default function InvoicesScreen() {
     draft:       invoices.filter(i => i.status === 'draft').length,
   }), [invoices]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const filtered = useMemo(() => {
     if (filter === 'All') return invoices;
     return invoices.filter(i => i.status === filter.toLowerCase() as InvoiceStatus);
   }, [invoices, filter]);
 
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const filterCounts = useMemo(() => {
     const c: Record<string, number> = { All: invoices.length };
     STATUS_FILTERS.slice(1).forEach(f => { c[f] = invoices.filter(i => i.status === f.toLowerCase()).length; });
@@ -261,6 +267,7 @@ export default function InvoicesScreen() {
         {/* Sticky filter tabs */}
         <View style={[S.filterBar, { backgroundColor: palette.surface }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.filterScroll}>
+            {/* react-doctor-disable-next-line react-doctor/rn-no-scrollview-mapped-list */}
             {STATUS_FILTERS.map(f => {
               const active = filter === f;
               const count = filterCounts[f] ?? 0;

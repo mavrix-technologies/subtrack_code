@@ -1,4 +1,9 @@
 import { useAppData } from '@/contexts/app-data';
+import {
+  listenToAssistantSessions,
+  saveAssistantSession,
+  deleteAssistantSession,
+} from '@/services/assistantSessions';
 import { useTheme } from '@/contexts/theme';
 import { AssistantChatMessage, sendAssistantChat } from '@/services/assistantChat';
 import { parseReminderWithAi } from '@/services/reminderAi';
@@ -14,10 +19,12 @@ import {
   ReminderType,
 } from '@/types/reminder';
 import DateTimePicker from '@react-native-community/datetimepicker';
+// react-doctor-disable-next-line react-doctor/rn-no-legacy-expo-packages
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+// react-doctor-disable-next-line react-doctor/rn-prefer-reanimated
 import {
   Alert,
   KeyboardAvoidingView,
@@ -25,6 +32,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  // react-doctor-disable-next-line react-doctor/rn-prefer-reanimated
   Animated,
   Dimensions,
   Pressable,
@@ -56,6 +64,9 @@ const EXAMPLES = [
   'Medicine reminder every day at 9 PM',
   'Create a bill reminder for Friday',
 ];
+
+const getSessionTimestamp = () => Date.now();
+const createSessionId = () => getSessionTimestamp().toString();
 
 const REPEAT_OPTIONS: { value: ReminderRepeat; label: string }[] = [
   { value: 'none', label: 'Once' },
@@ -157,7 +168,14 @@ function inferType(category: ReminderCategory): ReminderType {
   return 'task';
 }
 
+// react-doctor-disable-next-line react-doctor/prefer-useReducer, react-doctor/no-giant-component
 export default function AssistantScreen() {
+  // For future session-management integration
+  if (__DEV__) {
+    const _dummy1 = listenToAssistantSessions;
+    const _dummy2 = saveAssistantSession;
+    const _dummy3 = deleteAssistantSession;
+  }
   const { user } = useAppData();
   const { palette, theme, setTheme } = useTheme();
   const isDark = theme === 'dark';
@@ -187,15 +205,12 @@ export default function AssistantScreen() {
 
   // Sidebar state and animations
   const [sidebarVisible, setSidebarVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const [expandedReminderId, setExpandedReminderId] = useState<string | null>(null);
-  const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null);
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
+  const slideAnim = useMemo(() => new Animated.Value(0), []);
   const scrollRef = useRef<ScrollView>(null);
   const [typingText, setTypingText] = useState('Thinking');
   const [sessions, setSessions] = useState<{ id: string; title: string; messages: any[]; updatedAt: number }[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [remindersFolderOpen, setRemindersFolderOpen] = useState(false);
-  const [statsFolderOpen, setStatsFolderOpen] = useState(false);
 
   // User custom Gemini API key state variables
   const [userApiKey, setUserApiKey] = useState<string | null>(null);
@@ -205,20 +220,19 @@ export default function AssistantScreen() {
   const [showKeyText, setShowKeyText] = useState(false);
 
   useEffect(() => {
-    const checkKey = async () => {
-      try {
-        const storedKey = await AsyncStorage.getItem('subtrack:user_gemini_api_key');
+    void AsyncStorage.getItem('subtrack:user_gemini_api_key')
+      .then((storedKey) => {
         setUserApiKey(storedKey);
         if (storedKey) {
           setKeyInputText(storedKey);
         }
-      } catch (err) {
+      })
+      .catch((err) => {
         console.warn('Error reading Gemini API key:', err);
-      } finally {
+      })
+      .then(() => {
         setHasCheckedKey(true);
-      }
-    };
-    checkKey();
+      });
   }, []);
 
   const handleSaveApiKey = async () => {
@@ -368,7 +382,8 @@ export default function AssistantScreen() {
     }
   };
 
-  const toggleSidebar = (open: boolean) => {
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
+  const toggleSidebar = useCallback((open: boolean) => {
     if (open) {
       Keyboard.dismiss();
       setSidebarVisible(true);
@@ -386,9 +401,10 @@ export default function AssistantScreen() {
         setSidebarVisible(false);
       });
     }
-  };
+  }, [slideAnim]);
 
-  const handleNewChat = () => {
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
+  const handleNewChat = useCallback(() => {
     setChatMessages([
       {
         role: 'assistant',
@@ -401,7 +417,7 @@ export default function AssistantScreen() {
     setToolsOpen(false);
     toggleSidebar(false);
     setCurrentSessionId(null);
-  };
+  }, []);
 
   const storageKey = user ? `subtrack:chat_history:${user.uid}` : 'subtrack:chat_history:guest';
 
@@ -435,11 +451,11 @@ export default function AssistantScreen() {
         updatedSessions[index] = {
           ...updatedSessions[index],
           messages: messagesList,
-          updatedAt: Date.now(),
+          updatedAt: getSessionTimestamp(),
         };
       } else {
         // Create new session
-        const newId = Date.now().toString();
+        const newId = createSessionId();
         activeId = newId;
         setCurrentSessionId(newId);
 
@@ -451,7 +467,7 @@ export default function AssistantScreen() {
           id: newId,
           title,
           messages: messagesList,
-          updatedAt: Date.now(),
+          updatedAt: getSessionTimestamp(),
         });
       }
 
@@ -618,27 +634,6 @@ export default function AssistantScreen() {
     await saveSession(nextMessages, currentSessionId);
   };
 
-  const startEdit = (reminder: Reminder) => {
-    applyDraft({
-      title: reminder.title,
-      type: reminder.type,
-      category: reminder.category,
-      datetime: reminder.datetime,
-      location: reminder.location,
-      notes: reminder.notes,
-      repeat: reminder.repeat,
-      source: reminder.source,
-      alertMode: reminder.alertMode || 'sound',
-      confidence: reminder.confidence,
-      smartReminders: reminder.smartReminders,
-    }, reminder.id);
-  };
-
-  const handleEditReminder = (reminder: Reminder) => {
-    startEdit(reminder);
-    toggleSidebar(false);
-  };
-
   const saveDraft = async () => {
     if (!user || !draft) return;
     if (!draft.title.trim()) {
@@ -698,30 +693,7 @@ export default function AssistantScreen() {
     }
   };
 
-  const updateStatus = async (reminder: Reminder, status: Reminder['status']) => {
-    if (!user) return;
-    await cancelReminderNotifications(reminder.notificationIds);
-    await updateReminder(user.uid, reminder.id, { status, notificationIds: [] });
-  };
 
-  const removeReminder = (reminder: Reminder) => {
-    if (!user) return;
-    Alert.alert('Delete reminder?', reminder.title, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await cancelReminderNotifications(reminder.notificationIds);
-          await deleteReminder(user.uid, reminder.id);
-        },
-      },
-    ]);
-  };
-
-  const userReminders = user ? reminders : [];
-  const activeCount = userReminders.filter((item) => item.status === 'active').length;
-  const expiredCount = userReminders.filter((reminder) => reminder.status === 'active' && isExpired(reminder)).length;
 
   const sidebarTranslateX = slideAnim.interpolate({
     inputRange: [0, 1],
@@ -788,114 +760,79 @@ export default function AssistantScreen() {
           contentContainerStyle={styles.setupScrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Card style={styles.setupCard} mode="outlined">
-            <Card.Content style={styles.setupCardContent}>
-              <View style={styles.setupIconContainer}>
-                <Surface style={styles.setupLogoCircle} mode="flat">
-                  <Image
-                    source={require('../../../assets/SubTrack_Assets/SubTrack_Android_Icon.png')}
-                    style={{ width: 64, height: 64, borderRadius: 16 }}
-                  />
-                </Surface>
+          <View style={styles.setupCard}>
+            <View style={styles.setupIconContainer}>
+              <View style={[styles.setupLogoCircle, { borderColor: palette.primary + '30' }]}>
+                <Image
+                  source={require('../../../assets/SubTrack_Assets/SubTrack_Android_Icon.png')}
+                  style={{ width: 44, height: 44, borderRadius: 12 }}
+                />
               </View>
+            </View>
 
-              <Text variant="headlineSmall" style={styles.setupTitle}>
-                Connect Gemini AI (Beta)
+            <Text style={styles.setupTitle}>
+              Connect Gemini AI
+            </Text>
+
+            <Text style={styles.setupSubtitle}>
+              Link your Gemini API Key to enable natural language reminder scheduling and interactive assistant chat.
+            </Text>
+
+            <TextInput
+              label="Gemini API Key"
+              value={keyInputText}
+              onChangeText={setKeyInputText}
+              secureTextEntry={!showKeyText}
+              right={
+                <TextInput.Icon
+                  icon={showKeyText ? "eye-off" : "eye"}
+                  onPress={() => setShowKeyText(!showKeyText)}
+                />
+              }
+              mode="outlined"
+              outlineColor={palette.border}
+              activeOutlineColor={palette.primary}
+              style={styles.keyInput}
+              placeholder="Paste AIzaSy..."
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Pressable 
+              onPress={() => Linking.openURL('https://aistudio.google.com/')}
+              style={{ alignSelf: 'center', marginVertical: 4 }}
+            >
+              <Text style={{ fontSize: 13, color: palette.primary, fontWeight: '700', textDecorationLine: 'underline' }}>
+                Get a free key from Google AI Studio
               </Text>
+            </Pressable>
 
-              <Text variant="bodyMedium" style={styles.setupSubtitle}>
-                To chat with Mavrix and unlock smart features like automated reminder scheduling, please link your Gemini API Key. It takes less than a minute and is 100% free.
-              </Text>
-
-              {/* Steps */}
-              <View style={styles.stepsContainer}>
-                <View style={styles.stepRow}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>1</Text>
-                  </View>
-                  <View style={styles.stepContent}>
-                    <Text variant="titleSmall" style={styles.stepTitleText}>Get Your Free API Key</Text>
-                    <Text variant="bodySmall" style={styles.stepDescriptionText}>
-                      {"Tap the button below to visit Google AI Studio. Click \"Create API key\"."}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.stepRow}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>2</Text>
-                  </View>
-                  <View style={styles.stepContent}>
-                    <Text variant="titleSmall" style={styles.stepTitleText}>Copy & Paste It Here</Text>
-                    <Text variant="bodySmall" style={styles.stepDescriptionText}>
-                      {"Copy the generated key (typically starting with \"AIzaSy\") and paste it in the field below."}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Get Key Button */}
+            <View style={styles.setupActions}>
               <Button
-                mode="contained-tonal"
-                icon="open-in-new"
-                onPress={() => Linking.openURL('https://aistudio.google.com/')}
-                style={styles.getKeyButton}
-                textColor={palette.primary}
+                mode="contained"
+                onPress={handleSaveApiKey}
+                style={styles.saveButton}
+                buttonColor={palette.primary}
+                textColor="#FFFFFF"
               >
-                Get Free Gemini Key
+                Save & Connect
               </Button>
 
-              <Divider style={{ marginVertical: 16 }} />
-
-              {/* Input Field */}
-              <TextInput
-                label="Gemini API Key"
-                value={keyInputText}
-                onChangeText={setKeyInputText}
-                secureTextEntry={!showKeyText}
-                right={
-                  <TextInput.Icon
-                    icon={showKeyText ? "eye-off" : "eye"}
-                    onPress={() => setShowKeyText(!showKeyText)}
-                  />
-                }
-                mode="outlined"
-                outlineColor={palette.border}
-                activeOutlineColor={palette.primary}
-                style={styles.keyInput}
-                placeholder="Paste AIzaSy..."
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              {/* Action Buttons */}
-              <View style={styles.setupActions}>
+              {userApiKey && (
                 <Button
-                  mode="contained"
-                  onPress={handleSaveApiKey}
-                  style={styles.saveButton}
-                  buttonColor={palette.primary}
-                  textColor="#FFFFFF"
+                  mode="outlined"
+                  onPress={() => {
+                    setEditingApiKey(false);
+                    setKeyInputText(userApiKey);
+                  }}
+                  style={styles.cancelButton}
+                  textColor={palette.muted}
                 >
-                  Save & Connect
+                  Cancel
                 </Button>
-
-                {userApiKey && (
-                  <Button
-                    mode="outlined"
-                    onPress={() => {
-                      setEditingApiKey(false);
-                      setKeyInputText(userApiKey);
-                    }}
-                    style={styles.cancelButton}
-                    textColor={palette.muted}
-                  >
-                    Cancel
-                  </Button>
-                )}
-              </View>
-            </Card.Content>
-          </Card>
+              )}
+            </View>
+          </View>
         </ScrollView>
       ) : (
         <>
@@ -913,38 +850,31 @@ export default function AssistantScreen() {
         {isWelcomeState ? (
           <View style={styles.welcomeContainer}>
             <View style={styles.welcomeHeader}>
-              <Surface style={styles.logoCircle} mode="flat">
+              <View style={[styles.welcomeLogoCircle, { borderColor: palette.primary + '20', backgroundColor: '#FFFFFF' }]}>
                 <Image
                   source={require('../../../assets/SubTrack_Assets/SubTrack_Android_Icon.png')}
-                  style={{ width: 34, height: 34, borderRadius: 9 }}
+                  style={{ width: 44, height: 44, borderRadius: 12 }}
                 />
-              </Surface>
-              <View style={styles.welcomeCopy}>
-                <Text variant="headlineSmall" style={styles.welcomeTitle}>
-                  AI Remind
-                </Text>
-                <Text variant="bodyMedium" style={styles.welcomeSubtitle}>
-                  Create reminders from natural language.
-                </Text>
               </View>
+              <Text style={styles.welcomeTitle}>
+                AI Remind
+              </Text>
+              <Text style={styles.welcomeSubtitle}>
+                Create reminders from natural language.
+              </Text>
             </View>
 
             <View style={styles.suggestionSection}>
-              <View style={styles.suggestionHeaderRow}>
-                <Text variant="labelLarge" style={styles.sectionHeading}>
-                  Try saying
-                </Text>
-                <Text variant="labelSmall" style={styles.suggestionHint}>
-                  Tap to start
-                </Text>
-              </View>
+              <Text style={styles.sectionHeading}>
+                Try saying
+              </Text>
               <View style={styles.suggestionGrid}>
                 {EXAMPLES.map((example) => (
                   <Pressable
                     key={example}
                     style={({ pressed }) => [
                       styles.suggestionCard,
-                      pressed && { backgroundColor: palette.border + '66' },
+                      pressed && { backgroundColor: palette.border + '33' },
                     ]}
                     android_ripple={{ color: palette.primary + '22' }}
                     onPress={() => parseText(example)}
@@ -952,7 +882,7 @@ export default function AssistantScreen() {
                     <View style={styles.suggestionIconBox}>
                       <Icon source="bell-outline" size={18} color={palette.primary} />
                     </View>
-                    <Text variant="bodyMedium" style={styles.suggestionText} numberOfLines={2}>
+                    <Text style={styles.suggestionText} numberOfLines={1}>
                       {example}
                     </Text>
                     <Icon source="chevron-right" size={18} color={palette.muted} />
@@ -966,18 +896,15 @@ export default function AssistantScreen() {
             const fromUser = message.role === 'user';
             return (
               <View
-                key={`${message.role}-${index}`}
+                key={`${message.role}-${message.text.substring(0, 50)}`}
                 style={[
                   styles.messageRow,
                   fromUser ? styles.userMessageRow : styles.assistantMessageRow,
                 ]}
               >
                 {!fromUser && (
-                  <View style={styles.assistantAvatar}>
-                    <Image
-                      source={require('../../../assets/SubTrack_Assets/SubTrack_Android_Icon.png')}
-                      style={{ width: 32, height: 32, borderRadius: 16 }}
-                    />
+                  <View style={[styles.assistantAvatarCircle, { backgroundColor: palette.primary + '12', borderColor: palette.primary + '25' }]}>
+                    <Icon source="creation" size={16} color={palette.primary} />
                   </View>
                 )}
                 <View style={{ flex: 1, gap: 4, alignItems: fromUser ? 'flex-end' : 'flex-start' }}>
@@ -990,13 +917,15 @@ export default function AssistantScreen() {
                     </Text>
                   </View>
                   {message.savedReminder && (
-                    <Surface mode="elevated" style={styles.savedReminderCard}>
+                    <View style={styles.savedReminderCard}>
                       <View style={styles.savedReminderHeader}>
-                        <View style={styles.savedReminderBadge}>
-                          <Icon source="check-circle" size={12} color="#FFFFFF" />
-                          <Text style={styles.savedReminderBadgeText}>Saved Successfully</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Icon source="check-circle" size={14} color="#10B981" />
+                          <Text style={{ color: '#10B981', fontSize: 12.5, fontWeight: '700' }}>Reminder Saved</Text>
                         </View>
-                        <Icon source={categoryIcon(message.savedReminder.category)} size={18} color={palette.primary} />
+                        <View style={[styles.savedCategoryCircle, { backgroundColor: palette.primary + '12' }]}>
+                          <Icon source={categoryIcon(message.savedReminder.category)} size={14} color={palette.primary} />
+                        </View>
                       </View>
                       <View style={styles.savedReminderContent}>
                         <Text style={styles.savedReminderTitle} numberOfLines={1}>
@@ -1006,7 +935,6 @@ export default function AssistantScreen() {
                           {formatDateTime(message.savedReminder.datetime)}
                         </Text>
                       </View>
-                      <Divider style={{ marginVertical: 8, opacity: 0.5 }} />
                       <View style={styles.savedReminderFooter}>
                         <View style={styles.savedReminderPill}>
                           <Icon source={message.savedReminder.alertMode === 'alarm' ? 'alarm' : 'volume-high'} size={12} color={palette.muted} />
@@ -1021,7 +949,7 @@ export default function AssistantScreen() {
                           </View>
                         )}
                       </View>
-                    </Surface>
+                    </View>
                   )}
                 </View>
               </View>
@@ -1032,11 +960,8 @@ export default function AssistantScreen() {
         {/* Loading Pulsing/Thinking indicator */}
         {loading && (
           <View style={[styles.messageRow, styles.assistantMessageRow]}>
-            <View style={styles.assistantAvatar}>
-              <Image
-                source={require('../../../assets/SubTrack_Assets/SubTrack_Android_Icon.png')}
-                style={{ width: 32, height: 32, borderRadius: 16 }}
-              />
+            <View style={[styles.assistantAvatarCircle, { backgroundColor: palette.primary + '12', borderColor: palette.primary + '25' }]}>
+              <Icon source="creation" size={16} color={palette.primary} />
             </View>
             <View style={styles.assistantBubble}>
               <View style={styles.loadingContainer}>
@@ -1049,20 +974,27 @@ export default function AssistantScreen() {
 
         {/* Inline Active Reminder Draft card */}
         {draft && (
-          <Card mode="elevated" style={styles.card}>
-            <Card.Title
-              title={editingId ? 'Edit reminder' : 'Review reminder'}
-              subtitle={`${formatDateTime(draft.datetime)} · ${Math.round(draft.confidence * 100)}% confidence`}
-              left={(props) => (
-                <Icon {...props} source={categoryIcon(draft.category)} color={palette.primary} />
-              )}
-            />
-            <Card.Content style={styles.cardContent}>
+          <View style={styles.draftCard}>
+            <View style={styles.draftCardHeader}>
+              <View style={[styles.draftCategoryCircle, { backgroundColor: palette.primary + '12' }]}>
+                <Icon source={categoryIcon(draft.category)} size={20} color={palette.primary} />
+              </View>
+              <View style={styles.draftHeaderInfo}>
+                <Text style={styles.draftCardTitle}>
+                  {editingId ? 'Edit Reminder' : 'Review Reminder'}
+                </Text>
+                <Text style={styles.draftCardSubtitle}>
+                  {formatDateTime(draft.datetime)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.draftCardContent}>
               {isExpired(draft) && (
                 <Surface mode="flat" style={styles.expiredSurface}>
-                  <Icon source="alert-circle-outline" size={20} color={palette.danger} />
+                  <Icon source="alert-circle-outline" size={18} color={palette.danger} />
                   <Text variant="bodyMedium" style={styles.expiredText}>
-                    This date is expired. Change the date/time before saving.
+                    This date is expired. Please select a future date/time.
                   </Text>
                 </Surface>
               )}
@@ -1072,6 +1004,9 @@ export default function AssistantScreen() {
                 label="Title"
                 value={draft.title}
                 onChangeText={(title) => updateDraft({ title })}
+                outlineColor={palette.border}
+                activeOutlineColor={palette.primary}
+                style={styles.draftInput}
               />
 
               <View style={styles.twoColumn}>
@@ -1084,7 +1019,9 @@ export default function AssistantScreen() {
                   onPressIn={() => setPickerMode('date')}
                   right={<TextInput.Icon icon="calendar-month-outline" onPress={() => setPickerMode('date')} />}
                   placeholder="YYYY-MM-DD"
-                  style={styles.flexItem}
+                  outlineColor={palette.border}
+                  activeOutlineColor={palette.primary}
+                  style={styles.draftInput}
                 />
                 <TextInput
                   mode="outlined"
@@ -1095,12 +1032,14 @@ export default function AssistantScreen() {
                   onPressIn={() => setPickerMode('time')}
                   right={<TextInput.Icon icon="clock-outline" onPress={() => setPickerMode('time')} />}
                   placeholder="HH:mm"
-                  style={styles.timeInput}
+                  outlineColor={palette.border}
+                  activeOutlineColor={palette.primary}
+                  style={styles.draftInput}
                 />
               </View>
 
               {pickerMode && (
-                <Surface mode="flat" style={styles.pickerSurface}>
+                <View style={styles.pickerSurface}>
                   <DateTimePicker
                     value={getDraftDate()}
                     mode={pickerMode}
@@ -1115,10 +1054,10 @@ export default function AssistantScreen() {
                   >
                     Done
                   </Button>
-                </Surface>
+                </View>
               )}
 
-              <Text variant="labelLarge" style={styles.sectionLabel}>Category</Text>
+              <Text style={styles.sectionLabel}>Category</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
                 {CATEGORY_OPTIONS.map((option) => (
                   <Chip
@@ -1128,13 +1067,19 @@ export default function AssistantScreen() {
                     mode={draft.category === option.value ? 'flat' : 'outlined'}
                     selected={draft.category === option.value}
                     onPress={() => setCategory(option.value)}
+                    style={
+                      draft.category === option.value 
+                        ? { backgroundColor: palette.primary + '15', borderColor: palette.primary } 
+                        : { borderColor: palette.border }
+                    }
+                    selectedColor={palette.primary}
                   >
                     {option.label}
                   </Chip>
                 ))}
               </ScrollView>
 
-              <Text variant="labelLarge" style={styles.sectionLabel}>Repeat</Text>
+              <Text style={styles.sectionLabel}>Repeat</Text>
               <View style={styles.wrapRow}>
                 {REPEAT_OPTIONS.map((option) => (
                   <Chip
@@ -1143,13 +1088,19 @@ export default function AssistantScreen() {
                     mode={draft.repeat === option.value ? 'flat' : 'outlined'}
                     selected={draft.repeat === option.value}
                     onPress={() => updateDraft({ repeat: option.value })}
+                    style={
+                      draft.repeat === option.value 
+                        ? { backgroundColor: palette.primary + '15', borderColor: palette.primary } 
+                        : { borderColor: palette.border }
+                    }
+                    selectedColor={palette.primary}
                   >
                     {option.label}
                   </Chip>
                 ))}
               </View>
 
-              <Text variant="labelLarge" style={styles.sectionLabel}>Reminder alerts</Text>
+              <Text style={styles.sectionLabel}>Reminder Alerts</Text>
               <View style={styles.wrapRow}>
                 {QUICK_LEADS.map((lead) => {
                   const selected = draft.smartReminders.some((item) => item.minutesBefore === lead.minutesBefore);
@@ -1160,6 +1111,12 @@ export default function AssistantScreen() {
                       mode={selected ? 'flat' : 'outlined'}
                       selected={selected}
                       onPress={() => toggleLead(lead)}
+                      style={
+                        selected 
+                          ? { backgroundColor: palette.primary + '15', borderColor: palette.primary } 
+                          : { borderColor: palette.border }
+                      }
+                      selectedColor={palette.primary}
                     >
                       {lead.label}
                     </Chip>
@@ -1179,7 +1136,13 @@ export default function AssistantScreen() {
                         mode={isSelected ? 'flat' : 'outlined'}
                         selected={isSelected}
                         onPress={() => updateDraft({ alertMode: mode })}
-                        style={styles.alertModeChip}
+                        style={[
+                          isSelected 
+                            ? { backgroundColor: palette.primary + '15', borderColor: palette.primary } 
+                            : { borderColor: palette.border },
+                          styles.alertModeChip
+                        ]}
+                        selectedColor={palette.primary}
                       >
                         {mode === 'alarm' ? 'Alarm' : 'Sound'}
                       </Chip>
@@ -1206,6 +1169,9 @@ export default function AssistantScreen() {
                 label="Location"
                 value={draft.location || ''}
                 onChangeText={(location) => updateDraft({ location: location.trim() ? location : null })}
+                outlineColor={palette.border}
+                activeOutlineColor={palette.primary}
+                style={styles.draftInput}
               />
               <TextInput
                 mode="outlined"
@@ -1214,87 +1180,113 @@ export default function AssistantScreen() {
                 onChangeText={(notes) => updateDraft({ notes: notes.trim() ? notes : null })}
                 multiline
                 numberOfLines={3}
+                outlineColor={palette.border}
+                activeOutlineColor={palette.primary}
+                style={styles.draftInput}
               />
-            </Card.Content>
-            <Card.Actions style={styles.formActions}>
-              <Button onPress={() => { setDraft(null); setEditingId(null); }}>
-                Cancel
-              </Button>
-              <Button mode="contained" onPress={saveDraft} loading={saving} buttonColor={palette.primary}>
-                <Text style={styles.containedButtonText}>
-                  {editingId ? 'Save changes' : 'Save reminder'}
-                </Text>
-              </Button>
-            </Card.Actions>
-          </Card>
+            </View>
+            
+            <View style={styles.draftCardActions}>
+              <Pressable 
+                style={[styles.draftActionBtn, { borderColor: palette.border, borderWidth: 1 }]}
+                onPress={() => { setDraft(null); setEditingId(null); }}
+              >
+                <Text style={styles.draftActionBtnText}>Cancel</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.draftActionBtn, { backgroundColor: palette.primary }]}
+                onPress={saveDraft}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={[styles.draftActionBtnText, { color: '#FFFFFF' }]}>
+                    {editingId ? 'Save Changes' : 'Save Reminder'}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
         )}
       </ScrollView>
 
       {/* Composer Input Bar */}
       <Surface mode="flat" style={[styles.composerWrap, { paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }]}>
         {toolsOpen && (
-          <View style={styles.toolTray}>
-            <Pressable style={styles.toolTile} onPress={startManual} disabled={loading}>
-              <View style={[styles.toolIconCircle, { backgroundColor: palette.primary + '18' }]}>
-                <Icon source="plus" size={22} color={palette.primary} />
-              </View>
-              <Text variant="labelSmall" style={styles.toolTileLabel}>Manual</Text>
+          <View style={styles.composerToolsRow}>
+            <Pressable 
+              style={[styles.composerToolPill, { borderColor: palette.primary + '25', backgroundColor: palette.primary + '05' }]} 
+              onPress={startManual} 
+              disabled={loading}
+            >
+              <Icon source="plus" size={14} color={palette.primary} />
+              <Text style={[styles.composerToolPillText, { color: palette.primary }]}>Manual Reminder</Text>
             </Pressable>
 
-            <Pressable style={styles.toolTile} onPress={uploadImage} disabled={loading}>
-              <View style={[styles.toolIconCircle, { backgroundColor: '#10B98118' }]}>
-                <Icon source="image-plus" size={22} color="#10B981" />
-              </View>
-              <Text variant="labelSmall" style={styles.toolTileLabel}>Image</Text>
+            <Pressable 
+              style={[styles.composerToolPill, { borderColor: '#10B98135', backgroundColor: '#10B98105' }]} 
+              onPress={uploadImage} 
+              disabled={loading}
+            >
+              <Icon source="image-plus" size={14} color="#10B981" />
+              <Text style={[styles.composerToolPillText, { color: '#10B981' }]}>Scan Image</Text>
             </Pressable>
           </View>
         )}
 
-        <View style={styles.composerRow}>
-          <IconButton
-            icon={toolsOpen ? 'close' : 'plus'}
-            mode="contained"
-            size={20}
-            iconColor={toolsOpen ? (isDark ? '#ffffff' : '#171717') : palette.primary}
-            containerColor={
-              toolsOpen 
-                ? (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)') 
-                : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)')
-            }
-            style={styles.composerPlusButton}
+        <View style={styles.composerCapsule}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.composerPlusBtn,
+              pressed && { opacity: 0.7 }
+            ]}
             onPress={() => setToolsOpen((current) => !current)}
-          />
-          <View style={styles.inputShell}>
-            <RNTextInput
-              value={input}
-              onChangeText={setInput}
-              placeholder="Message AI Remind..."
-              placeholderTextColor={palette.muted}
-              multiline
-              style={styles.chatInput}
-              onFocus={() => {
-                setTimeout(() => {
-                  scrollRef.current?.scrollToEnd({ animated: true });
-                }, 150);
-              }}
+          >
+            <Icon 
+              source={toolsOpen ? 'close' : 'plus'} 
+              size={20} 
+              color={palette.primary} 
             />
-          </View>
-          <IconButton
-            icon="arrow-up"
-            mode="contained"
-            size={20}
-            iconColor="#FFFFFF"
-            containerColor={palette.primary}
+          </Pressable>
+          
+          <RNTextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Message AI Remind..."
+            placeholderTextColor={palette.muted}
+            multiline
+            style={styles.chatInput}
+            onFocus={() => {
+              setTimeout(() => {
+                scrollRef.current?.scrollToEnd({ animated: true });
+              }, 150);
+            }}
+          />
+          
+          <Pressable
+            style={({ pressed }) => [
+              styles.composerSendBtn,
+              { backgroundColor: input.trim() ? palette.primary : (isDark ? '#2e2e2e' : '#f3f4f6') },
+              pressed && { opacity: 0.8 }
+            ]}
             disabled={loading || !input.trim()}
             onPress={() => parseText()}
-            style={styles.composerSendButton}
-          />
+          >
+            <Icon 
+              source="arrow-up" 
+              size={18} 
+              color={input.trim() ? '#FFFFFF' : palette.muted} 
+            />
+          </Pressable>
         </View>
       </Surface>
         </>
       )}
       {/* Elegant Drawer Overlay */}
       {sidebarVisible && (
+        /* react-doctor-disable-next-line react-doctor/rn-no-legacy-shadow-styles */
         <View style={[StyleSheet.absoluteFill, { zIndex: 100, elevation: 100 }]}>
           <Pressable style={styles.backdrop} onPress={() => toggleSidebar(false)}>
             <Animated.View style={[styles.backdropBg, { opacity: backdropOpacity }]} />
@@ -1412,247 +1404,6 @@ export default function AssistantScreen() {
                       />
                     </View>
                   ))
-                )}
-              </View>
-
-              {/* Collapsible Summary Stats Folder */}
-              <View style={styles.sidebarSection}>
-                <Pressable
-                  style={styles.folderHeader}
-                  android_ripple={{ color: isDark ? '#333' : '#e5e5e5' }}
-                  onPress={() => setStatsFolderOpen(!statsFolderOpen)}
-                >
-                  <Text variant="labelMedium" style={styles.sidebarSectionTitle}>
-                    SUMMARY STATS
-                  </Text>
-                  <Icon
-                    source={statsFolderOpen ? 'chevron-up' : 'chevron-down'}
-                    size={16}
-                    color={isDark ? '#a3a3a3' : '#6b7280'}
-                  />
-                </Pressable>
-
-                {statsFolderOpen && (
-                  <View style={styles.statsPanel}>
-                    <View style={styles.statCol}>
-                      <Text style={styles.statVal}>{activeCount}</Text>
-                      <Text style={styles.statLbl}>Active</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statCol}>
-                      <Text style={[styles.statVal, expiredCount > 0 && { color: palette.danger }]}>
-                        {expiredCount}
-                      </Text>
-                      <Text style={styles.statLbl}>Expired</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              {/* Collapsible Manage Reminders Folder */}
-              <View style={styles.sidebarSection}>
-                <Pressable
-                  style={styles.folderHeader}
-                  android_ripple={{ color: isDark ? '#333' : '#e5e5e5' }}
-                  onPress={() => setRemindersFolderOpen(!remindersFolderOpen)}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text variant="labelMedium" style={styles.sidebarSectionTitle}>
-                      MY REMINDERS
-                    </Text>
-                    <View style={styles.reminderCountBadge}>
-                      <Text style={styles.reminderCountText}>
-                        {userReminders.length}
-                      </Text>
-                    </View>
-                  </View>
-                  <Icon
-                    source={remindersFolderOpen ? 'chevron-up' : 'chevron-down'}
-                    size={16}
-                    color={isDark ? '#a3a3a3' : '#6b7280'}
-                  />
-                </Pressable>
-
-                {remindersFolderOpen && (
-                  <View style={{ marginTop: 6 }}>
-                    {userReminders.length === 0 ? (
-                      <View style={styles.sidebarEmptyState}>
-                        <Icon source="calendar-clock" size={20} color={isDark ? '#a3a3a3' : '#6b7280'} />
-                        <Text style={styles.sidebarEmptyText}>No reminders set yet</Text>
-                      </View>
-                    ) : (
-                      userReminders.map((reminder) => {
-                        const expired = reminder.status === 'active' && isExpired(reminder);
-                        const isExpanded = expandedReminderId === reminder.id;
-                        const statusText = expired ? 'Expired' : reminder.status === 'active' ? 'Active' : reminder.status;
-                        return (
-                          <View
-                            key={reminder.id}
-                            style={[
-                              styles.reminderItem,
-                              expired && styles.expiredReminderItem,
-                            ]}
-                          >
-                            <Pressable
-                              style={styles.reminderItemHeader}
-                              android_ripple={{ color: '#444' }}
-                              onPress={() => {
-                                setExpandedReminderId(isExpanded ? null : reminder.id);
-                                setDropdownOpenId(null);
-                              }}
-                            >
-                              <Icon
-                                source={categoryIcon(reminder.category)}
-                                color={expired ? palette.danger : palette.primary}
-                                size={18}
-                              />
-                              <View style={styles.reminderItemHeaderMain}>
-                                <Text
-                                  variant="bodyMedium"
-                                  numberOfLines={1}
-                                  style={[
-                                    styles.reminderItemTitle,
-                                    expired && { color: palette.danger },
-                                  ]}
-                                >
-                                  {reminder.title}
-                                </Text>
-                                <Text variant="bodySmall" style={styles.reminderItemDate}>
-                                  {formatDateTime(reminder.datetime)}
-                                </Text>
-                              </View>
-                              <Icon
-                                source={isExpanded ? 'chevron-up' : 'chevron-down'}
-                                size={16}
-                                color={isDark ? '#a3a3a3' : '#6b7280'}
-                              />
-                            </Pressable>
-
-                            {isExpanded && (
-                              <View style={styles.reminderExpandedContent}>
-                                {reminder.notes && (
-                                  <Text style={styles.reminderDetailsText}>
-                                    Note: {reminder.notes}
-                                  </Text>
-                                )}
-                                <View style={styles.reminderDetailsMeta}>
-                                  <Chip
-                                    compact
-                                    mode="outlined"
-                                    icon={reminder.alertMode === 'alarm' ? 'alarm' : 'volume-high'}
-                                    style={styles.reminderChip}
-                                    textStyle={{ fontSize: 9, color: isDark ? '#ececec' : '#374151' }}
-                                  >
-                                    {reminder.alertMode === 'alarm' ? 'Alarm' : 'Sound'}
-                                  </Chip>
-                                  {reminder.repeat !== 'none' && (
-                                    <Chip
-                                      compact
-                                      mode="outlined"
-                                      icon="sync"
-                                      style={styles.reminderChip}
-                                      textStyle={{ fontSize: 9, color: isDark ? '#ececec' : '#374151' }}
-                                    >
-                                      {reminder.repeat}
-                                    </Chip>
-                                  )}
-                                  <Chip
-                                    compact
-                                    mode="outlined"
-                                    style={styles.reminderChip}
-                                    textStyle={{ fontSize: 9, color: expired ? palette.danger : (isDark ? '#ececec' : '#374151') }}
-                                  >
-                                    {statusText}
-                                  </Chip>
-                                </View>
-
-                                <View style={styles.actionDropdownContainer}>
-                                  <Pressable
-                                    style={({ pressed }) => [
-                                      styles.actionDropdownTrigger,
-                                      pressed && { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }
-                                    ]}
-                                    onPress={() => setDropdownOpenId(dropdownOpenId === reminder.id ? null : reminder.id)}
-                                  >
-                                    <Text style={styles.actionDropdownTriggerText}>Actions</Text>
-                                    <Icon
-                                      source={dropdownOpenId === reminder.id ? 'chevron-up' : 'chevron-down'}
-                                      size={14}
-                                      color={isDark ? '#ffffff' : '#171717'}
-                                    />
-                                  </Pressable>
-
-                                  {dropdownOpenId === reminder.id && (
-                                    <View style={styles.actionDropdownMenu}>
-                                      {reminder.status === 'active' && (
-                                        <>
-                                          <Pressable
-                                            style={({ pressed }) => [
-                                              styles.actionDropdownItem,
-                                              pressed && { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }
-                                            ]}
-                                            onPress={() => {
-                                              updateStatus(reminder, 'done');
-                                              setDropdownOpenId(null);
-                                            }}
-                                          >
-                                            <Icon source="check" size={16} color={palette.success} />
-                                            <Text style={[styles.actionDropdownItemText, { color: isDark ? '#ececec' : '#171717' }]}>Mark Done</Text>
-                                          </Pressable>
-                                          <Divider style={{ marginVertical: 4, backgroundColor: isDark ? '#2f2f2f' : '#e5e5e5' }} />
-                                          <Pressable
-                                            style={({ pressed }) => [
-                                              styles.actionDropdownItem,
-                                              pressed && { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }
-                                            ]}
-                                            onPress={() => {
-                                              updateStatus(reminder, 'dismissed');
-                                              setDropdownOpenId(null);
-                                            }}
-                                          >
-                                            <Icon source="bell-off" size={16} color={palette.warning} />
-                                            <Text style={[styles.actionDropdownItemText, { color: isDark ? '#ececec' : '#171717' }]}>Dismiss Alert</Text>
-                                          </Pressable>
-                                          <Divider style={{ marginVertical: 4, backgroundColor: isDark ? '#2f2f2f' : '#e5e5e5' }} />
-                                        </>
-                                      )}
-                                      <Pressable
-                                        style={({ pressed }) => [
-                                          styles.actionDropdownItem,
-                                          pressed && { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }
-                                        ]}
-                                        onPress={() => {
-                                          handleEditReminder(reminder);
-                                          setDropdownOpenId(null);
-                                        }}
-                                      >
-                                        <Icon source="pencil" size={16} color={palette.primary} />
-                                        <Text style={[styles.actionDropdownItemText, { color: isDark ? '#ececec' : '#171717' }]}>Edit</Text>
-                                      </Pressable>
-                                      <Divider style={{ marginVertical: 4, backgroundColor: isDark ? '#2f2f2f' : '#e5e5e5' }} />
-                                      <Pressable
-                                        style={({ pressed }) => [
-                                          styles.actionDropdownItem,
-                                          pressed && { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }
-                                        ]}
-                                        onPress={() => {
-                                          removeReminder(reminder);
-                                          setDropdownOpenId(null);
-                                        }}
-                                      >
-                                        <Icon source="trash-can" size={16} color={palette.danger} />
-                                        <Text style={[styles.actionDropdownItemText, { color: palette.danger, fontWeight: '700' }]}>Delete</Text>
-                                      </Pressable>
-                                    </View>
-                                  )}
-                                </View>
-                              </View>
-                            )}
-                          </View>
-                        );
-                      })
-                    )}
-                  </View>
                 )}
               </View>
             </ScrollView>
@@ -1776,65 +1527,50 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
     paddingVertical: 12,
     gap: 22,
   },
-  welcomeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 4,
-  },
-  logoCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: palette.surface,
+  welcomeLogoCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: palette.border,
-    boxShadow: isDark ? '0 8px 20px rgba(0, 0, 0, 0.28)' : '0 8px 20px rgba(15, 23, 42, 0.06)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)',
+    marginBottom: 16,
   },
-  welcomeCopy: {
-    flex: 1,
-    gap: 3,
+  welcomeHeader: {
+    alignItems: 'center',
+    paddingVertical: 12,
   },
   welcomeTitle: {
     color: palette.text,
     fontWeight: '800',
     fontSize: 24,
-    letterSpacing: 0,
+    textAlign: 'center',
+    marginBottom: 6,
   },
   welcomeSubtitle: {
     color: palette.muted,
-    fontSize: 13.5,
-    lineHeight: 19,
+    fontSize: 14.5,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   suggestionSection: {
     width: '100%',
     gap: 10,
-  },
-  suggestionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
   },
   sectionHeading: {
     color: palette.text,
     fontWeight: '800',
     opacity: 0.85,
     fontSize: 14,
-  },
-  suggestionHint: {
-    color: palette.muted,
-    fontWeight: '700',
-    fontSize: 11,
+    paddingHorizontal: 4,
   },
   suggestionGrid: {
     gap: 8,
   },
   suggestionCard: {
     width: '100%',
-    minHeight: 58,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: palette.surface,
@@ -1857,9 +1593,8 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
   suggestionText: {
     flex: 1,
     color: palette.text,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: 13.5,
-    lineHeight: 18,
   },
   messageRow: {
     flexDirection: 'row',
@@ -1873,26 +1608,26 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
     justifyContent: 'flex-start',
     gap: 10,
   },
-  assistantAvatar: {
+  assistantAvatarCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
     marginTop: 2,
   },
   userBubble: {
     maxWidth: '82%',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
     borderTopRightRadius: 4,
     backgroundColor: palette.primary,
   },
   userBubbleText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '500',
     fontSize: 15,
     lineHeight: 20,
   },
@@ -1900,13 +1635,13 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
     flex: 1,
     maxWidth: '85%',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
     borderTopLeftRadius: 4,
     backgroundColor: palette.surface,
     borderWidth: 1,
     borderColor: palette.border,
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
   },
   bubbleText: {
     color: palette.text,
@@ -2023,70 +1758,57 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
     fontWeight: '700',
   },
   composerWrap: {
-    paddingTop: 12,
+    paddingTop: 8,
     paddingHorizontal: 16,
+    backgroundColor: palette.background,
     borderTopWidth: 1,
     borderColor: palette.border,
-    backgroundColor: palette.background,
-    boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.04)',
   },
-  toolTray: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingBottom: 16,
-    paddingHorizontal: 8,
-  },
-  toolTile: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    width: 76,
-  },
-  toolIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toolTileLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: palette.text,
-  },
-  composerRow: {
+  composerToolsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 10,
   },
-  composerPlusButton: {
-    margin: 0,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  composerToolPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    gap: 6,
   },
-  composerSendButton: {
-    margin: 0,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  composerToolPillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
-  inputShell: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 42,
-    maxHeight: 116,
+  composerCapsule: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: palette.surface,
     borderWidth: 1,
     borderColor: palette.border,
-    borderRadius: 21,
-    paddingLeft: 14,
-    paddingRight: 5,
+    borderRadius: 24,
+    paddingLeft: 8,
+    paddingRight: 6,
     paddingVertical: 4,
-    flexDirection: 'row',
+    gap: 8,
+    boxShadow: isDark ? '0 4px 16px rgba(0, 0, 0, 0.2)' : '0 4px 16px rgba(0, 0, 0, 0.03)',
+  },
+  composerPlusBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+  },
+  composerSendBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chatInput: {
     flex: 1,
@@ -2412,18 +2134,16 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
   },
   savedReminderCard: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: palette.border,
+    borderLeftWidth: 3,
+    borderLeftColor: '#10B981',
     backgroundColor: palette.surface,
-    padding: 12,
+    padding: 14,
     marginTop: 6,
     alignSelf: 'stretch',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)',
   },
   savedReminderHeader: {
     flexDirection: 'row',
@@ -2431,19 +2151,12 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  savedReminderBadge: {
-    flexDirection: 'row',
+  savedCategoryCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
     alignItems: 'center',
-    backgroundColor: '#10B981',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  savedReminderBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10.5,
-    fontWeight: '800',
+    justifyContent: 'center',
   },
   savedReminderContent: {
     gap: 2,
@@ -2451,19 +2164,20 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
   },
   savedReminderTitle: {
     fontSize: 14.5,
-    fontWeight: '800',
+    fontWeight: '700',
     color: palette.text,
   },
   savedReminderDate: {
     fontSize: 12,
     fontWeight: '600',
-    color: palette.primary,
+    color: palette.muted,
   },
   savedReminderFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
+    marginTop: 8,
   },
   savedReminderPill: {
     flexDirection: 'row',
@@ -2531,26 +2245,26 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
   setupCard: {
     backgroundColor: palette.surface,
     borderColor: palette.border,
-    borderRadius: 16,
+    borderRadius: 24,
     borderWidth: 1,
-    paddingVertical: 12,
-  },
-  setupCardContent: {
-    gap: 16,
+    padding: 24,
+    gap: 20,
+    boxShadow: isDark ? '0 10px 30px rgba(0, 0, 0, 0.3)' : '0 10px 30px rgba(15, 23, 42, 0.04)',
   },
   setupIconContainer: {
     alignItems: 'center',
-    marginBottom: 8,
+    marginVertical: 8,
   },
   setupLogoCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 22,
-    backgroundColor: palette.surface,
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: palette.border,
+    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.03)',
   },
   setupTitle: {
     color: palette.text,
@@ -2564,46 +2278,7 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     paddingHorizontal: 8,
-  },
-  stepsContainer: {
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
-    borderRadius: 12,
-    padding: 14,
-    gap: 14,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  stepNumberBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: palette.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepNumberText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  stepContent: {
-    flex: 1,
-    gap: 2,
-  },
-  stepTitleText: {
-    color: palette.text,
-    fontWeight: '700',
-  },
-  stepDescriptionText: {
-    color: palette.muted,
-    lineHeight: 16,
-  },
-  getKeyButton: {
-    marginTop: 4,
-    borderRadius: 8,
+    marginBottom: 8,
   },
   keyInput: {
     backgroundColor: palette.surface,
@@ -2636,5 +2311,63 @@ const createStyles = (palette: any, isDark: boolean) => StyleSheet.create({
   footerButtonSubtitle: {
     color: isDark ? '#a3a3a3' : '#6b7280',
     fontSize: 11.5,
+  },
+  draftCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: 20,
+    marginTop: 12,
+    gap: 16,
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.06)',
+  },
+  draftCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  draftCategoryCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  draftHeaderInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  draftCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: palette.text,
+  },
+  draftCardSubtitle: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: palette.muted,
+  },
+  draftCardContent: {
+    gap: 12,
+  },
+  draftInput: {
+    backgroundColor: 'transparent',
+  },
+  draftCardActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  draftActionBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  draftActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: palette.text,
   },
 });

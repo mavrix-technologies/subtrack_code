@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import { getGoogleMobileAdsModule } from '@/components/ads/mobileAdsModule';
+import { getGoogleMobileAdsModule } from './mobileAdsModule';
 import { trackEvent } from '@/services/analytics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

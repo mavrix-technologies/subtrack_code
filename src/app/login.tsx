@@ -28,10 +28,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Mode = 'signin' | 'signup';
 
+const goHomeAfterAuth = () => {
+  setTimeout(() => router.replace('/(tabs)'), 120);
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 export default function LoginScreen() {
   "use no memo";
 
   const { palette, theme } = useTheme();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette, theme), [palette, theme]);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -48,9 +54,6 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const clearError = () => setError(null);
-  const goHomeAfterAuth = () => {
-    setTimeout(() => router.replace('/(tabs)'), 120);
-  };
 
   const handleSubmit = async () => {
     clearError();

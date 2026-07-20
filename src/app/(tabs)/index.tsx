@@ -1,12 +1,13 @@
 import { BrandIcon } from '@/components/BrandIcon';
 import { HomeBannerAd } from '@/components/ads/HomeBannerAd';
 import { HomeNativeAd } from '@/components/ads/HomeNativeAd';
+import { AnimatedNumberText } from '@/components/common/AnimatedNumberText';
 import { NotificationBadgeButton } from '@/components/common/NotificationBadgeButton';
+import { HomeRemoteBanner } from '@/components/messaging/HomeRemoteBanner';
 import { POPULAR_APPS } from '@/constants/brands';
 import { useAppData } from '@/contexts/app-data';
 import { useCurrency } from '@/contexts/currency';
 import { useTheme } from '@/contexts/theme';
-import { HomeRemoteBanner } from '@/components/messaging/HomeRemoteBanner';
 import { listenToReminders } from '@/services/reminders';
 import { Expense, useExpenseStore } from '@/store/useExpenseStore';
 import { Invoice, useInvoiceStore } from '@/store/useInvoiceStore';
@@ -16,7 +17,10 @@ import { SmartAlert } from '@/utils/ai-engine';
 import { getPendingInvoicesTotal, getTotalMonthlySpending } from '@/utils/calculations';
 import { formatDisplayDate, getRelativeRenewalLabel } from '@/utils/dates';
 import { buildNotificationItems, getUnreadNotificationCount } from '@/utils/notificationCenter';
+import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -28,10 +32,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import * as Notifications from 'expo-notifications';
-import { StatusBar } from 'expo-status-bar';
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -62,6 +62,14 @@ type HomeActivityItem = {
   route: string;
   brandIconPath?: string;
   brandColor?: string;
+};
+
+type SummaryCardItem = {
+  label: string;
+  value: number;
+  formatter?: (value: number) => string;
+  icon: string;
+  onPress: () => void;
 };
 
 type StableHomeData = {
@@ -113,6 +121,9 @@ function getRecentExpenses(expenses: Expense[]) {
     .slice(0, 3);
 }
 
+const resolveBrandIcon = (icon?: string) => POPULAR_APPS.find((app) => app.id === icon);
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 export default function DashboardScreen() {
   const { palette } = useTheme();
   const { width } = useWindowDimensions();
@@ -130,30 +141,6 @@ export default function DashboardScreen() {
     if (!user) return undefined;
     return listenToReminders(user.uid, setReminders, () => undefined);
   }, [user]);
-
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as {
-        subscriptionId?: string;
-        reminderId?: string;
-        type?: string;
-      };
-
-      if (data.subscriptionId) {
-        router.push(`/subscription/${data.subscriptionId}`);
-        return;
-      }
-
-      if (data.reminderId || data.type === 'ai_reminder' || data.type === 'ai_reminder_alarm') {
-        router.push('/assistant');
-        return;
-      }
-
-      router.push('/notifications');
-    });
-
-    return () => subscription.remove();
-  }, []);
 
   const isHomeHydrating = loadingSubscriptions || loadingExpenses || loadingInvoices;
   const hasLiveHomeData =
@@ -209,6 +196,7 @@ export default function DashboardScreen() {
   const invoiceTotals = getInvoiceTotals(displayHomeData.invoices);
   const pendingInvoices = getPendingInvoicesTotal(displayHomeData.invoices);
   const balance = monthlySubscriptions + monthExpenses + pendingInvoices;
+  const shouldShowNumberPlaceholder = isHomeHydrating && !hasLiveHomeData;
   const upcomingPreview = displayHomeData.upcomingRenewals.slice(0, 5);
   const recentExpenses = getRecentExpenses(displayHomeData.expenses);
   const firstName = user?.name?.trim()?.split(/\s+/)[0] || 'there';
@@ -222,29 +210,31 @@ export default function DashboardScreen() {
   const notificationCount = getUnreadNotificationCount(notificationItems);
   const activeReminders = displayHomeData.reminders.filter((reminder) => reminder.status === 'active' && reminder.datetime);
   const openInvoices = displayHomeData.invoices.filter((invoice) => invoice.status === 'overdue' || invoice.status === 'unpaid');
-  const resolveBrandIcon = (icon?: string) => POPULAR_APPS.find((app) => app.id === icon);
-  const summaryCards = [
+  const summaryCards: SummaryCardItem[] = [
     {
       label: 'Total Spend',
-      value: formatAmount(balance),
+      value: balance,
+      formatter: formatAmount,
       icon: 'trending-up',
       onPress: () => router.push('/expenses'),
     },
     {
-      label: 'Active Subscriptions',
-      value: `${displayHomeData.subscriptions.length}`,
+      label: 'Subscriptions',
+      value: displayHomeData.subscriptions.length,
       icon: 'subscriptions',
       onPress: () => router.push('/subscriptions'),
     },
     {
       label: 'Pending Invoices',
-      value: formatAmount(invoiceTotals.open),
+      value: invoiceTotals.open,
+      formatter: formatAmount,
       icon: 'receipt-long',
       onPress: () => router.push('/invoices'),
     },
     {
-      label: 'Monthly Expenses',
-      value: formatAmount(monthExpenses),
+      label: 'Expenses',
+      value: monthExpenses,
+      formatter: formatAmount,
       icon: 'account-balance-wallet',
       onPress: () => router.push('/expenses'),
     },
@@ -343,14 +333,16 @@ export default function DashboardScreen() {
 
           <View style={layout.heroBalancePanel}>
             <Text style={layout.heroLabel}>Total Overview</Text>
-            <Text
+            <AnimatedNumberText
+              value={balance}
+              formatter={formatAmount}
               style={layout.balanceAmount}
+              loading={shouldShowNumberPlaceholder}
+              placeholder="Loading"
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
-            >
-              {formatAmount(balance)}
-            </Text>
+            />
             <View style={styles.heroMetaRow}>
               <View style={layout.heroChangePill}>
                 <Icon source="arrow-up" size={14} color="#FFFFFF" />
@@ -386,14 +378,16 @@ export default function DashboardScreen() {
                     </View>
                     <Text style={layout.summaryLabel} numberOfLines={1}>{card.label}</Text>
                   </View>
-                  <Text
+                  <AnimatedNumberText
+                    value={card.value}
+                    formatter={card.formatter}
                     style={layout.summaryValue}
+                    loading={shouldShowNumberPlaceholder}
+                    placeholder="--"
                     numberOfLines={1}
                     adjustsFontSizeToFit
                     minimumFontScale={0.68}
-                  >
-                    {card.value}
-                  </Text>
+                  />
                 </Pressable>
               </View>
             ))}
@@ -770,6 +764,7 @@ function createLayout(palette: any, isCompact: boolean) {
       letterSpacing: 0,
       flex: 1,
       minWidth: 0,
+      fontVariant: ['tabular-nums'],
     },
     summaryCard: {
       width: '100%',
@@ -802,18 +797,20 @@ function createLayout(palette: any, isCompact: boolean) {
       flexShrink: 0,
     },
     summaryLabel: {
-      color: '#7A746C',
+      color: palette.muted,
       fontSize: 11,
       fontWeight: '800',
       flex: 1,
       minWidth: 0,
     },
     summaryValue: {
-      color: '#201F1B',
+      color: palette.text,
       fontSize: isCompact ? 20 : 22,
       fontWeight: '900',
       letterSpacing: 0,
       marginTop: 14,
+      minHeight: isCompact ? 27 : 30,
+      fontVariant: ['tabular-nums'],
     },
     sectionTitle: {
       color: palette.text,

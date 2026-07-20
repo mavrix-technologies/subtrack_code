@@ -120,6 +120,49 @@ function makeDateTrigger(N: any, date: Date, channelId: string): any {
   return trigger;
 }
 
+function makeRepeatTrigger(N: any, date: Date, repeat: ReminderDraft['repeat'], channelId: string): any {
+  const base: Record<string, unknown> = {
+    hour: date.getHours(),
+    minute: date.getMinutes(),
+  };
+
+  if (!IS_EXPO_GO) base.channelId = channelId;
+
+  if (repeat === 'daily') {
+    return {
+      ...base,
+      type: N.SchedulableTriggerInputTypes.DAILY,
+    };
+  }
+
+  if (repeat === 'weekly') {
+    return {
+      ...base,
+      type: N.SchedulableTriggerInputTypes.WEEKLY,
+      weekday: date.getDay() + 1,
+    };
+  }
+
+  if (repeat === 'monthly') {
+    return {
+      ...base,
+      type: N.SchedulableTriggerInputTypes.MONTHLY,
+      day: date.getDate(),
+    };
+  }
+
+  if (repeat === 'yearly') {
+    return {
+      ...base,
+      type: N.SchedulableTriggerInputTypes.YEARLY,
+      day: date.getDate(),
+      month: date.getMonth() + 1,
+    };
+  }
+
+  return makeDateTrigger(N, date, channelId);
+}
+
 function makeIntervalTrigger(N: any, seconds: number, channelId: string): any {
   const trigger: Record<string, unknown> = {
     type:    N.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -139,7 +182,16 @@ export async function syncRenewalNotifications(subscriptions: Subscription[]) {
   ]);
   if (!granted) return { scheduled: 0, permission: 'denied' as const };
 
-  await N.cancelAllScheduledNotificationsAsync();
+  const scheduledNotifications = await N.getAllScheduledNotificationsAsync().catch(() => []);
+  const cancelPromises: Promise<any>[] = [];
+  for (const notification of scheduledNotifications) {
+    if (notification?.content?.data?.type === 'renewal_reminder') {
+      cancelPromises.push(
+        N.cancelScheduledNotificationAsync(notification.identifier).catch(() => undefined)
+      );
+    }
+  }
+  await Promise.all(cancelPromises);
 
   let scheduled = 0;
 
@@ -256,10 +308,11 @@ export async function scheduleReminderNotifications(
   const isAlarm = reminder.alertMode === 'alarm';
   const channelId = isAlarm ? CHANNEL_AI_ALARM : CHANNEL_AI_REMINDER;
 
-  for (const lead of leads) {
+  const promises = leads.map(async (lead) => {
     const triggerDate = new Date(eventDate);
     triggerDate.setMinutes(triggerDate.getMinutes() - Math.max(0, lead.minutesBefore));
-    if (triggerDate <= new Date()) continue;
+    const isRepeating = reminder.repeat !== 'none';
+    if (!isRepeating && triggerDate <= new Date()) return null;
 
     // Alarm-specific extras: full-screen intent pops over lock screen on Android,
     // categoryIdentifier maps to a registered category on iOS.
@@ -271,7 +324,7 @@ export async function scheduleReminderNotifications(
         }
       : {};
 
-    const id = await N.scheduleNotificationAsync({
+    return N.scheduleNotificationAsync({
       content: {
         title: isAlarm
           ? `⏰ Alarm: ${reminder.title}`
@@ -288,10 +341,15 @@ export async function scheduleReminderNotifications(
         badge: 1,
         ...alarmExtras,
       },
-      trigger: makeDateTrigger(N, triggerDate, channelId),
+      trigger: isRepeating
+        ? makeRepeatTrigger(N, triggerDate, reminder.repeat, channelId)
+        : makeDateTrigger(N, triggerDate, channelId),
     });
+  });
 
-    notificationIds.push(id);
+  const scheduledIds = await Promise.all(promises);
+  for (const id of scheduledIds) {
+    if (id) notificationIds.push(id);
   }
 
   return notificationIds;

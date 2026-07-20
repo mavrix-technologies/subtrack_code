@@ -48,6 +48,7 @@ export function LegacyUpdateAlert() {
   "use no memo";
 
   const { palette } = useTheme();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
   const [visible, setVisible] = useState(false);
   const [campaign, setCampaign] = useState<UpdateAlertCampaign>(DEFAULT_UPDATE_ALERT);
@@ -67,7 +68,6 @@ export function LegacyUpdateAlert() {
 
   useEffect(() => {
     if (!shouldShowUpdateAlert(campaign)) {
-      setVisible(false);
       return;
     }
 
@@ -91,7 +91,7 @@ export function LegacyUpdateAlert() {
     await Linking.openURL(campaign.actionUrl || PLAY_STORE_URL);
   };
 
-  if (!visible) return null;
+  if (!visible || !shouldShowUpdateAlert(campaign)) return null;
 
   return (
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={close}>

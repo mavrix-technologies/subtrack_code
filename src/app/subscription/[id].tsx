@@ -1,9 +1,9 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Switch, Platform, TextInput } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, ScrollView, Pressable, StyleSheet, Platform, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon } from 'react-native-paper';
+import { Icon, IconButton, Chip, Text, Switch, Divider, Button } from 'react-native-paper';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useTheme } from '@/contexts/theme';
 import { formatDisplayDate, getEffectiveNextBillingDate, parseIsoDate } from '@/utils/dates';
@@ -13,10 +13,83 @@ import { POPULAR_APPS } from '@/constants/brands';
 import { useCurrency } from '@/contexts/currency';
 import * as Haptics from 'expo-haptics';
 
+// ── Ordinal Suffix Helper ──
+function getOrdinalSuffix(day: number) {
+  if (day > 3 && day < 21) return 'th';
+  switch (day % 10) {
+    case 1:  return "st";
+    case 2:  return "nd";
+    case 3:  return "rd";
+    default: return "th";
+  }
+}
+
+// ── Dynamic Billing Day Description ──
+function getRenewalDayLabel(nextBillingDate: string, billingCycle: string) {
+  if (!nextBillingDate) return 'Subscription renewal';
+  const parts = nextBillingDate.split('-');
+  if (parts.length < 3) return 'Subscription renewal';
+  const day = parseInt(parts[2], 10);
+  if (isNaN(day)) return 'Subscription renewal';
+  
+  if (billingCycle === 'monthly') {
+    return `Subscription on every ${day}${getOrdinalSuffix(day)}`;
+  } else {
+    const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, day);
+    const monthStr = date.toLocaleDateString('en-US', { month: 'short' });
+    return `Subscription every year on ${monthStr} ${day}${getOrdinalSuffix(day)}`;
+  }
+}
+
+// ── Timeline Generator ──
+const getTimelineData = (sub: any) => {
+  const nextIso = getEffectiveNextBillingDate(sub);
+  const nextDate = parseIsoDate(nextIso) || new Date();
+  const dates = [];
+  
+  for (let i = -4; i <= 0; i++) {
+    const d = new Date(nextDate);
+    if (sub.billingCycle === 'monthly') {
+      d.setMonth(d.getMonth() + i);
+    } else {
+      d.setFullYear(d.getFullYear() + i);
+    }
+    dates.push({
+      date: d,
+      isFuture: i === 0,
+      month: d.toLocaleDateString('en-US', { month: 'short' }),
+      year: d.getFullYear().toString(),
+    });
+  }
+  return dates;
+};
+
+// ── Simulated Recent Transactions Generator ──
+const getRecentTransactions = (sub: any) => {
+  const nextIso = getEffectiveNextBillingDate(sub);
+  const nextDate = parseIsoDate(nextIso) || new Date();
+  const list = [];
+  
+  for (let i = 1; i <= 3; i++) {
+    const d = new Date(nextDate);
+    if (sub.billingCycle === 'monthly') {
+      d.setMonth(d.getMonth() - i);
+    } else {
+      d.setFullYear(d.getFullYear() - i);
+    }
+    list.push({
+      id: `${sub.id}-tx-${i}`,
+      dateStr: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      price: sub.price,
+    });
+  }
+  return list;
+};
+
 export default function SubscriptionDetailScreen() {
   "use no memo";
 
-  const { palette } = useTheme();
+  const { palette, theme } = useTheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const { id } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
@@ -29,7 +102,6 @@ export default function SubscriptionDetailScreen() {
 
   const [reminderDateStr, setReminderDateStr] = useState(() => {
     if (!sub) return new Date().toISOString().split('T')[0];
-    // get reminder date helper inline
     const getReminderDateVal = () => {
       if (sub.reminderCustomDate) {
         return new Date(sub.reminderCustomDate);
@@ -44,6 +116,9 @@ export default function SubscriptionDetailScreen() {
     };
     return getReminderDateVal().toISOString().split('T')[0];
   });
+  const [prevSubId, setPrevSubId] = useState(sub?.id);
+  const [prevReminderCustomDate, setPrevReminderCustomDate] = useState(sub?.reminderCustomDate);
+
   const appDef = sub ? POPULAR_APPS.find((a: any) => a.id === sub.icon) : null;
 
   const getReminderDate = useCallback(() => {
@@ -60,10 +135,12 @@ export default function SubscriptionDetailScreen() {
     return reminderDate;
   }, [sub]);
 
-  useEffect(() => {
+  if (sub?.id !== prevSubId || sub?.reminderCustomDate !== prevReminderCustomDate) {
+    setPrevSubId(sub?.id);
+    setPrevReminderCustomDate(sub?.reminderCustomDate);
     const d = getReminderDate();
     setReminderDateStr(d.toISOString().split('T')[0]);
-  }, [sub?.reminderCustomDate, getReminderDate]);
+  }
 
   if (!sub) {
     return (
@@ -81,11 +158,8 @@ export default function SubscriptionDetailScreen() {
     brandColor = palette.primary; 
   }
 
-  const yearlyCost = sub.billingCycle === 'monthly' ? sub.price * 12 : sub.price;
   const isPaused = sub.status === 'paused';
   const remindersEnabled = sub.remindersEnabled ?? true;
-
-
 
   const handleReminderDateStrChange = (val: string) => {
     setReminderDateStr(val);
@@ -94,8 +168,6 @@ export default function SubscriptionDetailScreen() {
       updateSubData({ reminderCustomDate: parsed.toISOString() });
     }
   };
-
-
 
   const updateSubData = async (updates: Partial<typeof sub>) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -107,241 +179,405 @@ export default function SubscriptionDetailScreen() {
     await updateSubData({ status: isPaused ? 'active' : 'paused' });
   };
 
+  const categoryLabel = sub.category
+    ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1)
+    : 'Utilities';
+
+  const timelineSteps = getTimelineData(sub);
+  const recentTransactions = getRecentTransactions(sub);
+
+  const topBgColor = theme === 'dark' ? 'rgba(30, 41, 59, 0.45)' : brandColor + '12';
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-        <Pressable 
-          style={styles.backBtn}
-          onPress={() => router.back()}
-        >
-          <Icon source="chevron-left" size={28} color={palette.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Details</Text>
-        <Pressable 
-          style={styles.editBtn}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push(`/edit/${sub.id}`);
-          }}
-        >
-          <Text style={styles.editBtnText}>Edit</Text>
-        </Pressable>
-      </View>
-
+      
       <ScrollView 
-        contentContainerStyle={styles.scrollContent}
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
+        bounces={false}
       >
-        {/* Premium Hero Card */}
-        <View style={[styles.heroCard, { backgroundColor: brandColor }]}>
-          <View style={styles.heroTop}>
-            <View style={styles.logoBox}>
-              {appDef ? (
-                <BrandIcon path={appDef.icon.path} size={32} color={brandColor} />
-              ) : sub.icon?.startsWith('http') ? (
-                <Image source={{ uri: sub.icon }} style={{ width: 48, height: 48, borderRadius: 12, resizeMode: 'cover' }} />
-              ) : (
-                <Text style={[styles.logoText, { color: brandColor }]}>{sub.name.charAt(0).toUpperCase()}</Text>
-              )}
-            </View>
-            <View style={styles.statusBadge}>
-              <View style={[styles.statusDot, isPaused && { backgroundColor: '#F59E0B' }]} />
-              <Text style={styles.statusText}>{isPaused ? 'Paused' : 'Active'}</Text>
-            </View>
-          </View>
-          
-          <View style={styles.heroMiddle}>
-          <Text style={styles.serviceName} numberOfLines={2}>{sub.name}</Text>
-          <Text style={styles.planName} numberOfLines={1}>{sub.planName || 'Standard Plan'}</Text>
-          </View>
-
-          <View style={styles.heroBottom}>
-            <View>
-              <Text style={styles.priceLabel}>Amount</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                <Text style={styles.price} numberOfLines={1}>{formatAmount(sub.price)}</Text>
-                <Text style={styles.billingCycle}>/{sub.billingCycle === 'monthly' ? 'mo' : 'yr'}</Text>
-              </View>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.priceLabel}>Next Payment</Text>
-              <Text style={styles.nextDateHero} numberOfLines={1}>{formatDisplayDate(sub.nextBillingDate)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <Pressable style={styles.actionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(`/edit/${sub.id}`); }}>
-            <View style={styles.actionIconBox}>
-              <Icon source="pencil" size={22} color={palette.text} />
-            </View>
-            <Text style={styles.actionText}>Edit</Text>
-          </Pressable>
-          <Pressable style={styles.actionBtn} onPress={togglePause}>
-            <View style={styles.actionIconBox}>
-              <Icon source={isPaused ? "play" : "pause"} size={22} color={palette.text} />
-            </View>
-            <Text style={styles.actionText}>{isPaused ? 'Resume' : 'Pause'}</Text>
-          </Pressable>
-          <Pressable style={styles.actionBtn} onPress={() => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            removeSubscription(sub.id);
-            router.back();
-          }}>
-            <View style={[styles.actionIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-              <Icon source="trash-can-outline" size={22} color="#EF4444" />
-            </View>
-            <Text style={[styles.actionText, { color: '#EF4444' }]}>Delete</Text>
-          </Pressable>
-        </View>
-
-        {/* Statistics Section */}
-        <Text style={styles.sectionTitle}>Insights</Text>
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}>
-            <View style={[styles.statIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-              <Icon source="chart-line" size={20} color="#3B82F6" />
-            </View>
-            <Text style={styles.statLabel}>Yearly Projection</Text>
-            <Text style={styles.statValue}>{formatAmount(yearlyCost)}</Text>
-          </View>
-          <View style={styles.statBox}>
-            <View style={[styles.statIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-              <Icon source="calendar-check" size={20} color="#10B981" />
-            </View>
-            <Text style={styles.statLabel}>Cycle</Text>
-            <Text style={styles.statValue}>{sub.billingCycle === 'monthly' ? 'Monthly' : 'Yearly'}</Text>
-          </View>
-        </View>
-
-        {/* Details & Settings */}
-        <Text style={styles.sectionTitle}>Settings</Text>
-        <View style={styles.detailsList}>
-          {/* Smart Reminders */}
-          <View style={[styles.listItem, (showReminderInfo || remindersEnabled) && { borderBottomWidth: 0 }]}>
-            <View style={styles.listLeft}>
-              <View style={[styles.listIconBox, { backgroundColor: palette.cardYellow }]}>
-                <Icon source="bell-ring-outline" size={20} color="#F59E0B" />
-              </View>
-              <Text style={styles.listLabel} numberOfLines={1}>Smart Reminders</Text>
-              <Pressable onPress={() => setShowReminderInfo(!showReminderInfo)} style={{ padding: 4 }}>
-                <Icon source="information-outline" size={16} color={palette.muted} />
-              </Pressable>
-            </View>
-            <Switch 
-              value={remindersEnabled} 
-              onValueChange={(val) => {
-                Haptics.selectionAsync();
-                updateSubData({ remindersEnabled: val });
+        {/* Unified Top Hero Block (matching mockup) */}
+        <View style={[styles.topBlock, { backgroundColor: topBgColor, paddingTop: Math.max(insets.top, 12) }]}>
+          {/* Header Row */}
+          <View style={styles.header}>
+            <IconButton 
+              icon="chevron-left" 
+              iconColor={palette.text} 
+              size={24}
+              onPress={() => router.back()}
+              style={styles.backBtn}
+            />
+            <Text style={[styles.headerTitle, { color: palette.text }]}>Subscription Detail</Text>
+            <IconButton 
+              icon="pencil" 
+              iconColor={palette.text} 
+              size={20}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push(`/edit/${sub.id}`);
               }}
-              trackColor={{ false: palette.line, true: palette.primary }}
+              style={styles.editBtn}
             />
           </View>
-          
-          {showReminderInfo && (
-            <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: remindersEnabled ? 0 : 1, borderBottomColor: palette.line }}>
-              <Text style={{ fontSize: 13, color: palette.muted, lineHeight: 18 }}>
-                Smart Reminders will send you a push notification before this subscription renews, ensuring you have time to cancel if needed.
-              </Text>
-            </View>
-          )}
 
-          {remindersEnabled && (
-            <>
-              {Platform.OS === 'web' ? (
-                <View style={[styles.listItem, { borderBottomWidth: 1, borderBottomColor: palette.line }]}>
-                  <View style={styles.listLeft}>
-                    <View style={[styles.listIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-                      <Icon source="calendar-clock" size={20} color="#3B82F6" />
-                    </View>
-                    <Text style={styles.listLabel} numberOfLines={1}>Remind me on</Text>
-                  </View>
-                  <TextInput
-                    value={reminderDateStr}
-                    onChangeText={handleReminderDateStrChange}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={palette.muted}
-                    style={{
-                      fontSize: 15,
-                      color: palette.text,
-                      textAlign: 'right',
-                      minWidth: 100,
-                      backgroundColor: 'transparent',
-                      borderWidth: 0,
-                      outlineStyle: 'none',
-                    } as any}
-                  />
-                </View>
+          {/* Branding Content */}
+          <View style={styles.brandingSection}>
+            <View style={styles.logoContainer}>
+              {appDef ? (
+                <BrandIcon path={appDef.icon.path} size={36} color={brandColor} />
+              ) : sub.icon?.startsWith('http') ? (
+                <Image source={{ uri: sub.icon }} style={{ width: 52, height: 52, borderRadius: 26, resizeMode: 'cover' }} />
               ) : (
-                <>
-                  <Pressable 
-                    style={[styles.listItem, { borderBottomWidth: 1, borderBottomColor: palette.line }]}
-                    onPress={() => setShowDatePicker(true)}
-                  >
+                <Text style={[styles.logoLetter, { color: brandColor }]}>{sub.name.charAt(0).toUpperCase()}</Text>
+              )}
+            </View>
+            
+            <Text 
+              variant="labelMedium" 
+              style={[styles.statusText, { color: isPaused ? palette.warning : palette.success }]}
+            >
+              Status: {isPaused ? 'Paused' : 'Active'}
+            </Text>
+            
+            <Text 
+              variant="headlineSmall" 
+              style={[styles.serviceName, { color: palette.text }]} 
+              numberOfLines={2}
+            >
+              {sub.name}
+            </Text>
+            
+            <Text 
+              variant="bodyMedium" 
+              style={[styles.renewalDayText, { color: palette.muted }]}
+            >
+              {getRenewalDayLabel(sub.nextBillingDate, sub.billingCycle)}
+            </Text>
+            
+            <Chip
+              icon={appDef ? 'tag-outline' : 'cog-outline'}
+              style={[styles.categoryChip, { backgroundColor: brandColor + '15' }]}
+              textStyle={{ color: brandColor, fontWeight: '700', fontSize: 12 }}
+              compact
+              mode="flat"
+            >
+              {categoryLabel}
+            </Chip>
+          </View>
+        </View>
+
+        {/* Content Section (standard clean list layout) */}
+        <View style={styles.contentCard}>
+          
+          {/* Centered Next Payment block (no box outline, clean and open) */}
+          <View style={styles.nextPaymentSection}>
+            <Text variant="labelMedium" style={[styles.nextPaymentLabel, { color: palette.muted }]}>
+              Next Payment
+            </Text>
+            <Text variant="displayLarge" style={[styles.nextPaymentPrice, { color: palette.text }]}>
+              -{formatAmount(sub.price)}
+            </Text>
+            <Text variant="bodyMedium" style={[styles.nextPaymentDate, { color: palette.muted }]}>
+              Expected around <Text style={[styles.expectedDateHighlight, { color: palette.success }]}>{formatDisplayDate(sub.nextBillingDate)}</Text>
+            </Text>
+          </View>
+
+          {/* Connected Billing Timeline */}
+          <View style={styles.timelineContainer}>
+            <View style={styles.timelineRow}>
+              {/* Leftmost leading line */}
+              <View style={[styles.timelineFlexLine, { backgroundColor: brandColor, width: 24 }]} />
+              
+              {timelineSteps.map((step, idx) => {
+                const dotColor = step.isFuture ? (theme === 'dark' ? '#475569' : '#CBD5E1') : brandColor;
+                const nextStepIsFuture = idx < timelineSteps.length - 1 && timelineSteps[idx + 1].isFuture;
+                
+                return (
+                  <React.Fragment key={idx}>
+                    {/* The Dot */}
+                    <View style={[
+                      styles.timelineDot,
+                      {
+                        borderColor: dotColor,
+                        backgroundColor: step.isFuture ? palette.background : '#FFFFFF',
+                        borderWidth: step.isFuture ? 2.5 : 3.5,
+                        borderStyle: step.isFuture ? 'dashed' : 'solid',
+                      }
+                    ]} />
+                    
+                    {/* The Line segment following the dot */}
+                    {idx < timelineSteps.length - 1 ? (
+                      nextStepIsFuture ? (
+                        <View 
+                          style={[
+                            styles.timelineFlexLineDashed, 
+                            { 
+                              borderColor: theme === 'dark' ? '#334155' : '#E2E8F0',
+                            }
+                          ]} 
+                        />
+                      ) : (
+                        <View 
+                          style={[
+                            styles.timelineFlexLine, 
+                            { 
+                              backgroundColor: brandColor,
+                            }
+                          ]} 
+                        />
+                      )
+                    ) : (
+                      /* Rightmost trailing line */
+                      <View 
+                        style={[
+                          styles.timelineFlexLineDashed, 
+                          { 
+                            borderColor: theme === 'dark' ? '#334155' : '#E2E8F0',
+                            width: 24,
+                          }
+                        ]} 
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </View>
+
+            {/* Labels Row (aligned perfectly under each dot) */}
+            <View style={styles.labelsRow}>
+              {timelineSteps.map((step, idx) => (
+                <View key={idx} style={styles.labelColumn}>
+                  <Text variant="bodySmall" style={[styles.timelineLabel, { color: palette.text }]} numberOfLines={1}>
+                    {step.month}
+                  </Text>
+                  <Text variant="bodySmall" style={[styles.timelineYear, { color: palette.muted }]}>
+                    {step.year}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Spent Highlights Insight */}
+          <View style={styles.insightRow}>
+            <Icon source="lightbulb-on-outline" size={20} color={palette.muted} />
+            <Text variant="bodyMedium" style={[styles.insightText, { color: palette.muted }]}>
+              You've spent {formatAmount(sub.price * (sub.billingCycle === 'monthly' ? 5 : 1))} over 5 billing cycles on this vendor.
+            </Text>
+          </View>
+
+          {/* Recent Transactions List */}
+          <View style={styles.transactionsSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Text variant="titleMedium" style={[styles.sectionTitle, { color: palette.text }]}>
+                Recent Transactions ({recentTransactions.length})
+              </Text>
+              <Pressable hitSlop={8}>
+                <Text style={[styles.seeAllLink, { color: brandColor }]}>See All</Text>
+              </Pressable>
+            </View>
+            
+            <View>
+              {recentTransactions.map((tx) => (
+                <View key={tx.id} style={[styles.txRow, { borderColor: palette.line }]}>
+                  <View style={[styles.txLogoBox, { backgroundColor: brandColor + '12' }]}>
+                    {appDef ? (
+                      <BrandIcon path={appDef.icon.path} size={18} color={brandColor} />
+                    ) : (
+                      <Text variant="titleMedium" style={[styles.txLetter, { color: brandColor }]}>
+                        {sub.name.charAt(0).toUpperCase()}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.txInfo}>
+                    <Text variant="bodyMedium" style={[styles.txName, { color: palette.text }]} numberOfLines={1}>
+                      {sub.name}
+                    </Text>
+                    <Text variant="bodySmall" style={[styles.txMeta, { color: palette.muted }]}>
+                      {sub.billingCycle === 'monthly' ? 'Monthly' : 'Yearly'} · {tx.dateStr}
+                    </Text>
+                  </View>
+                  <Text variant="bodyMedium" style={[styles.txPrice, { color: palette.text }]}>
+                    {formatAmount(tx.price)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Settings Section */}
+          <Text variant="titleMedium" style={[styles.settingsTitle, { color: palette.text }]}>
+            Subscription Settings
+          </Text>
+          
+          <View style={styles.detailsList}>
+            {/* Smart Reminders Row */}
+            <View style={[styles.listItem, (showReminderInfo || remindersEnabled) && { borderBottomWidth: 0 }]}>
+              <View style={styles.listLeft}>
+                <View style={[styles.listIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                  <Icon source="bell-ring-outline" size={20} color="#F59E0B" />
+                </View>
+                <Text variant="bodyMedium" style={[styles.listLabel, { color: palette.text }]} numberOfLines={1}>
+                  Smart Reminders
+                </Text>
+                <Pressable onPress={() => setShowReminderInfo(!showReminderInfo)} style={{ padding: 4 }}>
+                  <Icon source="information-outline" size={16} color={palette.muted} />
+                </Pressable>
+              </View>
+              <Switch 
+                value={remindersEnabled} 
+                onValueChange={(val) => {
+                  Haptics.selectionAsync();
+                  updateSubData({ remindersEnabled: val });
+                }}
+                trackColor={{ false: palette.line, true: palette.primary }}
+              />
+            </View>
+            
+            {showReminderInfo && (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 16, backgroundColor: palette.surface, borderBottomWidth: remindersEnabled ? 0 : StyleSheet.hairlineWidth, borderBottomColor: palette.line }}>
+                <Text variant="bodySmall" style={{ color: palette.muted, lineHeight: 18 }}>
+                  Smart Reminders will send you a push notification before this subscription renews, ensuring you have time to cancel if needed.
+                </Text>
+              </View>
+            )}
+
+            {remindersEnabled && (
+              <>
+                {Platform.OS === 'web' ? (
+                  <View style={[styles.listItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.line }]}>
                     <View style={styles.listLeft}>
                       <View style={[styles.listIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
                         <Icon source="calendar-clock" size={20} color="#3B82F6" />
                       </View>
-                      <Text style={styles.listLabel} numberOfLines={1}>Remind me on</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.listValue} numberOfLines={1}>
-                        {getReminderDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      <Text variant="bodyMedium" style={[styles.listLabel, { color: palette.text }]} numberOfLines={1}>
+                        Remind me on
                       </Text>
-                      <Icon source="chevron-right" size={20} color={palette.muted} />
                     </View>
-                  </Pressable>
-                  
-                  <DateTimePickerModal
-                    isVisible={showDatePicker}
-                    mode="date"
-                    date={getReminderDate()}
-                    onConfirm={(selectedDate) => {
-                      setShowDatePicker(false);
-                      updateSubData({ reminderCustomDate: selectedDate.toISOString() });
-                    }}
-                    onCancel={() => setShowDatePicker(false)}
-                    textColor={palette.text} // respects dark mode
-                  />
-                </>
-              )}
-            </>
-          )}
+                    <TextInput
+                      value={reminderDateStr}
+                      onChangeText={handleReminderDateStrChange}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor={palette.muted}
+                      style={{
+                        fontSize: 14,
+                        color: palette.text,
+                        textAlign: 'right',
+                        minWidth: 100,
+                        backgroundColor: 'transparent',
+                        borderWidth: 0,
+                        outlineStyle: 'none',
+                      } as any}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    <Pressable 
+                      style={[styles.listItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.line }]}
+                      onPress={() => setShowDatePicker(true)}
+                    >
+                      <View style={styles.listLeft}>
+                        <View style={[styles.listIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                          <Icon source="calendar-clock" size={20} color="#3B82F6" />
+                        </View>
+                        <Text variant="bodyMedium" style={[styles.listLabel, { color: palette.text }]} numberOfLines={1}>
+                          Remind me on
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text variant="bodyMedium" style={[styles.listValue, { color: palette.text }]} numberOfLines={1}>
+                          {getReminderDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </Text>
+                        <Icon source="chevron-right" size={20} color={palette.muted} />
+                      </View>
+                    </Pressable>
+                    
+                    <DateTimePickerModal
+                      isVisible={showDatePicker}
+                      mode="date"
+                      date={getReminderDate()}
+                      onConfirm={(selectedDate) => {
+                        setShowDatePicker(false);
+                        updateSubData({ reminderCustomDate: selectedDate.toISOString() });
+                      }}
+                      onCancel={() => setShowDatePicker(false)}
+                      textColor={palette.text}
+                    />
+                  </>
+                )}
+              </>
+            )}
 
-          {/* Payment method */}
-          <View style={styles.listItem}>
-            <View style={styles.listLeft}>
-              <View style={[styles.listIconBox, { backgroundColor: palette.cardTeal }]}>
-                <Icon source="credit-card-outline" size={20} color="#10B981" />
+            {/* Payment Method */}
+            <View style={styles.listItem}>
+              <View style={styles.listLeft}>
+                <View style={[styles.listIconBox, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                  <Icon source="credit-card-outline" size={20} color="#10B981" />
+                </View>
+                <Text variant="bodyMedium" style={[styles.listLabel, { color: palette.text }]} numberOfLines={1}>
+                  Payment Method
+                </Text>
               </View>
-              <Text style={styles.listLabel} numberOfLines={1}>Payment Method</Text>
-            </View>
-            <View style={styles.paymentMethodRight}>
-              <Text style={styles.listValue} numberOfLines={1}>{sub.notes || 'Default Card'}</Text>
-              <View style={styles.mcCardBox}>
-                <View style={styles.mcCircles}>
-                  <View style={[styles.mcCircle, { backgroundColor: '#EF4444', right: -6 }]} />
-                  <View style={[styles.mcCircle, { backgroundColor: '#F59E0B' }]} />
+              <View style={styles.paymentMethodRight}>
+                <Text variant="bodyMedium" style={[styles.listValue, { color: palette.text }]} numberOfLines={1}>
+                  {sub.notes || 'Default Card'}
+                </Text>
+                <View style={[styles.mcCardBox, { borderColor: palette.line }]}>
+                  <View style={styles.mcCircles}>
+                    <View style={[styles.mcCircle, { backgroundColor: '#EF4444', right: -6 }]} />
+                    <View style={[styles.mcCircle, { backgroundColor: '#F59E0B' }]} />
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
 
-          {/* Subscription ID */}
-          <View style={[styles.listItem, { borderBottomWidth: 0 }]}>
-            <View style={styles.listLeft}>
-              <View style={[styles.listIconBox, { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }]}>
-                <Icon source="fingerprint" size={20} color={palette.muted} />
+            {/* Subscription ID */}
+            <View style={[styles.listItem, { borderBottomWidth: 0 }]}>
+              <View style={styles.listLeft}>
+                <View style={[styles.listIconBox, { backgroundColor: palette.background, borderWidth: 1, borderColor: palette.line }]}>
+                  <Icon source="fingerprint" size={20} color={palette.muted} />
+                </View>
+                <Text variant="bodyMedium" style={[styles.listLabel, { color: palette.text }]} numberOfLines={1}>
+                  Subscription ID
+                </Text>
               </View>
-              <Text style={styles.listLabel} numberOfLines={1}>Subscription ID</Text>
+              <Text variant="bodyMedium" style={[styles.listValue, { color: palette.muted, fontSize: 13 }]} numberOfLines={1}>
+                {sub.id.substring(0, 10)}
+              </Text>
             </View>
-            <Text style={[styles.listValue, { color: palette.muted, fontSize: 13 }]} numberOfLines={1}>{sub.id.substring(0, 10)}</Text>
           </View>
-        </View>
 
+          {/* Quick Actions (Pause/Delete) styled as native Material outlined buttons */}
+          <View style={styles.quickActions}>
+            <Button
+              mode="outlined"
+              icon={isPaused ? "play" : "pause"}
+              onPress={togglePause}
+              textColor={palette.text}
+              style={{ borderColor: palette.line, borderRadius: 12, flex: 1 }}
+              labelStyle={{ fontWeight: '700', fontSize: 13 }}
+            >
+              {isPaused ? 'Resume' : 'Pause'}
+            </Button>
+            <Button
+              mode="outlined"
+              icon="trash-can-outline"
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                removeSubscription(sub.id);
+                router.back();
+              }}
+              textColor="#EF4444"
+              style={{ borderColor: '#EF4444' + '40', borderRadius: 12, flex: 1 }}
+              labelStyle={{ fontWeight: '700', fontSize: 13 }}
+            >
+              Delete
+            </Button>
+          </View>
+
+        </View>
       </ScrollView>
     </View>
   );
@@ -352,206 +588,233 @@ const createStyles = (palette: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: palette.background,
   },
+  topBlock: {
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    paddingBottom: 24,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.line,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 8,
+    height: 48,
   },
   backBtn: {
-    padding: 8,
-    marginLeft: -8,
+    margin: 0,
   },
   headerTitle: {
-    fontSize: 18,
     fontWeight: '700',
-    color: palette.text,
+    fontSize: 16,
   },
   editBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: palette.surface,
-    borderRadius: 16,
+    margin: 0,
   },
-  editBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: palette.text,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 60,
-  },
-  heroCard: {
-    borderRadius: 32,
-    padding: 24,
+  brandingSection: {
+    alignItems: 'center',
     marginTop: 8,
-    boxShadow: '0 20px 40px -10px rgba(0,0,0,0.2)',
   },
-  heroTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  logoBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: '0 8px 16px -4px rgba(0,0,0,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    marginBottom: 10,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
   },
-  logoText: {
-    fontSize: 28,
+  logoLetter: {
+    fontSize: 32,
     fontWeight: 'bold',
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10B981',
-  },
   statusText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  heroMiddle: {
-    marginTop: 32,
-    marginBottom: 32,
+    fontWeight: '700',
+    marginBottom: 4,
+    fontSize: 12,
   },
   serviceName: {
-    fontSize: 28,
     fontWeight: '800',
-    color: '#FFFFFF',
+    textAlign: 'center',
     marginBottom: 4,
   },
-  planName: {
-    fontSize: 16,
+  renewalDayText: {
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 12,
   },
-  heroBottom: {
+  categoryChip: {
+    borderRadius: 16,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contentCard: {
+    padding: 20,
+  },
+  nextPaymentSection: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  nextPaymentLabel: {
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  nextPaymentPrice: {
+    fontWeight: '800',
+  },
+  nextPaymentDate: {
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  expectedDateHighlight: {
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  timelineContainer: {
+    marginVertical: 24,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 16,
+  },
+  timelineDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  timelineFlexLine: {
+    flex: 1,
+    height: 3,
+  },
+  timelineFlexLineDashed: {
+    flex: 1,
+    height: 3,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  labelsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.15)',
-    paddingTop: 20,
-    gap: 16,
+    paddingHorizontal: 7,
+    marginTop: 8,
   },
-  priceLabel: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '500',
-    marginBottom: 4,
+  labelColumn: {
+    alignItems: 'center',
+    width: 50,
   },
-  price: {
-    fontSize: 30,
+  timelineLabel: {
+    fontSize: 11,
     fontWeight: '800',
-    color: '#FFFFFF',
+    textAlign: 'center',
   },
-  billingCycle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
+  timelineYear: {
+    fontSize: 9,
+    fontWeight: '800',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  insightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    marginVertical: 12,
+    justifyContent: 'center',
+  },
+  insightText: {
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '600',
+    flexShrink: 1,
   },
-  nextDateHero: {
+  transactionsSection: {
+    marginTop: 20,
+    marginBottom: 24,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  seeAllLink: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  txLogoBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  txLetter: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
-    maxWidth: 138,
-    textAlign: 'right',
+  },
+  txInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  txName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  txMeta: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  txPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   quickActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 16,
     marginTop: 24,
     marginBottom: 32,
-    paddingHorizontal: 12,
   },
-  actionBtn: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: palette.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-  },
-  actionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: palette.text,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: palette.text,
-    marginBottom: 16,
-    marginLeft: 4,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 32,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: palette.surface,
-    padding: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.line,
-  },
-  statIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: palette.muted,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: palette.text,
+  settingsTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 12,
   },
   detailsList: {
-    backgroundColor: palette.surface,
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    borderWidth: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.line,
   },
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.line,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: palette.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   listLeft: {
     flexDirection: 'row',
@@ -561,50 +824,36 @@ const createStyles = (palette: any) => StyleSheet.create({
     minWidth: 0,
   },
   listIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   listLabel: {
     flexShrink: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    color: palette.text,
   },
   listValue: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    color: palette.text,
     flexShrink: 1,
     minWidth: 0,
-  },
-  reminderChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    backgroundColor: palette.surface,
-  },
-  reminderChipText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   paymentMethodRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flex: 1,
     minWidth: 0,
     justifyContent: 'flex-end',
     marginLeft: 12,
   },
   mcCardBox: {
-    width: 36,
-    height: 22,
+    width: 32,
+    height: 20,
     borderWidth: 1,
-    borderColor: palette.line,
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
@@ -612,13 +861,13 @@ const createStyles = (palette: any) => StyleSheet.create({
   mcCircles: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 18,
-    marginRight: 6,
+    width: 16,
+    marginRight: 4,
   },
   mcCircle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     position: 'absolute',
   },
 });

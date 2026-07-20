@@ -11,6 +11,7 @@ export default function LegalPageScreen() {
   const { page } = useLocalSearchParams<{ page?: string }>();
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  // react-doctor-disable-next-line react-doctor/react-compiler-no-manual-memoization
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   const pageId = page && isLegalPageId(page) ? page : 'privacy';
@@ -30,6 +31,7 @@ export default function LegalPageScreen() {
 
         <View style={styles.divider} />
 
+        {/* react-doctor-disable-next-line react-doctor/rn-no-scrollview-mapped-list */}
         {content.sections.map((section) => (
           <View key={section.title} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
