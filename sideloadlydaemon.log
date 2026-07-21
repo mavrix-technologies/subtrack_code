@@ -1,0 +1,89 @@
+2026/07/21 11:04:41 Loading 0.60
+2026/07/21 11:04:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:0001-01-01 00:00:00 +0000 UTC LastChecked:0001-01-01 00:00:00 +0000 UTC LastError:Remote Anisette is not available for you; iTunes Anisette not available; Remote Anisette is not available for you; Cannot continue!
+If Local Anisette cannot be fixed then you may want to use Remote Anisette (available to our Patreon supporters) as it does not rely on your local system. FailuresCount:1}] map[string][]*model.Installation{}
+2026/07/21 11:04:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:04:41 Sideloadly! Daemon v0.60 is running
+2026/07/21 11:04:41 Got device evt {{00008110-000948882153801E false iPhone 13 iPhone14,5 26.5.2  false false <nil> <nil>} true}
+2026/07/21 11:04:41 Got device mobdev.DeviceInfo{Udid:"00008110-000948882153801E", IsNetwork:false, Name:"iPhone 13", devType:"iPhone14,5", version:"26.5.2", TvMac:"", tvPaired:false, m1:false, err:error(nil), cachedDev:(mobdev._Ctype_idevice_t)(nil)}
+2026/07/21 11:04:41 Device info: 00008110-000948882153801E false &{00008110-000948882153801E iPhone 13 false false false 2026-07-21 11:04:41.6746084 +0530 IST m=+0.346644901 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:04:41 Timeout stop: true
+2026/07/21 11:04:41 Drain failed?..
+2026/07/21 11:04:41 Will tick
+2026/07/21 11:04:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:04:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:04:41 Done tick
+2026/07/21 11:05:41 Got timeout, refreshing
+2026/07/21 11:05:41 Timeout stop: false
+2026/07/21 11:05:41 Drain failed?..
+2026/07/21 11:05:41 Will tick
+2026/07/21 11:05:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:05:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:05:41 Done tick
+2026/07/21 11:06:41 Got timeout, refreshing
+2026/07/21 11:06:41 Timeout stop: false
+2026/07/21 11:06:41 Drain failed?..
+2026/07/21 11:06:41 Will tick
+2026/07/21 11:06:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:06:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:06:41 Done tick
+2026/07/21 11:07:41 Got timeout, refreshing
+2026/07/21 11:07:41 Timeout stop: false
+2026/07/21 11:07:41 Drain failed?..
+2026/07/21 11:07:41 Will tick
+2026/07/21 11:07:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:07:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:07:41 Done tick
+2026/07/21 11:08:41 Got timeout, refreshing
+2026/07/21 11:08:41 Timeout stop: false
+2026/07/21 11:08:41 Drain failed?..
+2026/07/21 11:08:41 Will tick
+2026/07/21 11:08:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:08:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:08:41 Done tick
+2026/07/21 11:09:41 Got timeout, refreshing
+2026/07/21 11:09:41 Timeout stop: false
+2026/07/21 11:09:41 Drain failed?..
+2026/07/21 11:09:41 Will tick
+2026/07/21 11:09:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:09:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:09:41 Done tick
+2026/07/21 11:10:41 Got timeout, refreshing
+2026/07/21 11:10:41 Timeout stop: false
+2026/07/21 11:10:41 Drain failed?..
+2026/07/21 11:10:41 Will tick
+2026/07/21 11:10:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:10:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:10:41 Done tick
+2026/07/21 11:11:41 Got timeout, refreshing
+2026/07/21 11:11:41 Timeout stop: false
+2026/07/21 11:11:41 Drain failed?..
+2026/07/21 11:11:41 Will tick
+2026/07/21 11:11:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:11:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:11:41 Done tick
+2026/07/21 11:12:41 Got timeout, refreshing
+2026/07/21 11:12:41 Timeout stop: false
+2026/07/21 11:12:41 Drain failed?..
+2026/07/21 11:12:41 Will tick
+2026/07/21 11:12:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:12:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:12:41 Done tick
+2026/07/21 11:13:41 Got timeout, refreshing
+2026/07/21 11:13:41 Timeout stop: false
+2026/07/21 11:13:41 Drain failed?..
+2026/07/21 11:13:41 Will tick
+2026/07/21 11:13:41 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:13:41 Nothing to do for device &{00008110-000948882153801E iPhone 13 false false false 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC  0}
+2026/07/21 11:13:41 Done tick
+2026/07/21 11:14:25 Tray icon activated 1
+2026/07/21 11:14:25 Context?
+2026/07/21 11:14:27 Closing shutdown
+2026/07/21 11:14:27 Waiting for worker to finish
+2026/07/21 11:14:27 Poller shutdown
+2026/07/21 11:14:27 Got device evt {{ false     false false <nil> <nil>} false}
+2026/07/21 11:14:27 Timeout stop: true
+2026/07/21 11:14:27 Drain failed?..
+2026/07/21 11:14:27 Will tick
+2026/07/21 11:14:27 Apps [{Udid:00008110-000948882153801E Name:iPhone 13 IsM1:false IsTV:false WiFi:false LastSeen:2026-07-21 11:04:41.6746084 +0530 +0530 LastChecked:2026-07-21 11:04:41.6746084 +0530 +0530 LastError: FailuresCount:0}] map[string][]*model.Installation{}
+2026/07/21 11:14:32 WARNING: worker not responding?
+2026/07/21 11:14:32 Done!
