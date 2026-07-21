@@ -45,6 +45,22 @@ jobs:
           else
             echo "No XCode version check found in Podfile"
           fi
+          # Fix RNFBApp non-modular header error (Firebase + React Native in CI)
+          if ! grep -q "ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES" Podfile; then
+            echo "Patching Podfile to fix RNFBApp non-modular header error..."
+            cat >> Podfile << 'EOF'
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      config.build_settings['CLANG_ENABLE_MODULE_DEBUGGING'] = 'NO'
+    end
+  end
+end
+EOF
+            echo "Podfile patched for RNFBApp"
+          fi
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
