@@ -58,72 +58,51 @@ jobs:
           cd ios
           pod install
 
-      - name: Build iOS app (no codesign)
+      - name: Build iOS app (archive)
         run: |
           cd ios
-          xcodebuild -workspace SubTrack.xcworkspace \
+          xcodebuild archive \
+            -workspace SubTrack.xcworkspace \
             -scheme SubTrack \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath build \
-            -destination 'generic/platform=iOS' \
+            -archivePath build/SubTrack.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGN_ENTITLEMENTS="" \
             CODE_SIGNING_INJECT_BASE_ENTITLEMENTS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            build 2>&1 | tee xcode_build.log || { echo "=================== XCODE BUILD FAILURE LOG ==================="; tail -n 150 xcode_build.log; exit 1; }
+            2>&1 | tee xcode_build.log || { echo "=================== XCODE BUILD FAILURE LOG ==================="; tail -n 150 xcode_build.log; exit 1; }
 
       - name: Create IPA
         run: |
-          echo "=== Locating compiled .app bundle ==="
-          
-          # Locate SubTrack.app or main .app bundle, excluding .framework and .bundle directories
-          APP_PATH=$(find ios/build/Build/Products -name "SubTrack.app" -o -name "*.app" | grep -v "\.framework" | grep -v "\.bundle" | head -n 1)
-          
+          echo "=== Locating .app inside xcarchive ==="
+          APP_PATH=$(find ios/build/SubTrack.xcarchive -name "*.app" | head -n 1)
+
           if [ -z "$APP_PATH" ]; then
-            echo "❌ ERROR: No .app package found in build directory!"
-            find ios/build -name "*.app"
+            echo "❌ ERROR: No .app found in xcarchive!"
+            find ios/build/SubTrack.xcarchive -type d | head -30
             exit 1
           fi
 
           APP_NAME=$(basename "$APP_PATH")
-          echo "✅ Found valid iOS App bundle: $APP_NAME at $APP_PATH"
-          
-          echo "=== Contents of $APP_PATH ==="
-          ls -la "$APP_PATH"
+          echo "✅ Found: $APP_NAME at $APP_PATH"
+          echo "=== App bundle contents ==="
+          ls -lh "$APP_PATH"
 
-          rm -rf Payload SubTrack.ipa
-          mkdir -p "Payload/$APP_NAME"
-          
-          # Dereference ALL internal symlinks completely so extractors (isideload/Sideloadly) get real files
-          rsync -avL "$APP_PATH/" "Payload/$APP_NAME/"
-          
-          # Ensure Info.plist exists in Payload; if missing, copy from prebuilt Expo ios project
-          if [ ! -s "Payload/$APP_NAME/Info.plist" ]; then
-            echo "⚠️ Info.plist missing in app bundle. Copying from generated Expo iOS project..."
-            PLIST_SRC=$(find ios -name "Info.plist" -not -path "*/Pods/*" -not -path "*/build/*" | head -n 1)
-            if [ -n "$PLIST_SRC" ]; then
-              cp "$PLIST_SRC" "Payload/$APP_NAME/Info.plist"
-              echo "✅ Copied Info.plist from $PLIST_SRC"
-            else
-              echo "❌ ERROR: Could not find template Info.plist in ios directory!"
-              exit 1
-            fi
-          fi
-          
-          # Convert Info.plist to XML format for 100% cross-platform parser compatibility (Rust isideload / Windows)
+          mkdir -p Payload
+          cp -r "$APP_PATH" "Payload/$APP_NAME"
+
+          # Convert Info.plist to XML for cross-platform compatibility (Sideloadly/AltStore)
           plutil -convert xml1 "Payload/$APP_NAME/Info.plist"
-          
-          echo "=== Verifying Info.plist contents ==="
-          plutil -p "Payload/$APP_NAME/Info.plist" | head -n 20
-          
-          # Zip Payload into SubTrack.ipa
+
+          echo "=== Info.plist preview ==="
+          plutil -p "Payload/$APP_NAME/Info.plist" | head -n 15
+
           zip -r -9 SubTrack.ipa Payload
-          
-          echo "=== Verifying Zip Archive structure ==="
-          unzip -l SubTrack.ipa | grep "Payload/.*Info.plist"
+          echo "=== IPA size ==="
+          du -sh SubTrack.ipa
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
