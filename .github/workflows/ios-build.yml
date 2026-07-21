@@ -58,57 +58,28 @@ jobs:
           cd ios
           pod install
 
-      - name: Build iOS app (archive)
+      - name: Build iOS app (no codesign)
         run: |
-          set -o pipefail
           cd ios
-          xcodebuild archive \
-            -workspace SubTrack.xcworkspace \
+          xcodebuild -workspace SubTrack.xcworkspace \
             -scheme SubTrack \
             -configuration Release \
             -sdk iphoneos \
-            -archivePath "$PWD/build/SubTrack.xcarchive" \
-            SKIP_INSTALL=NO \
-            CODE_SIGNING_ALLOWED=YES \
+            -derivedDataPath build \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="-" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            CLANG_ENABLE_MODULE_DEBUGGING=NO \
-            SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
-            2>&1 | tee xcode_build.log || { echo "=================== XCODE BUILD FAILURE LOG ==================="; tail -n 150 xcode_build.log; exit 1; }
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            build
 
       - name: Create IPA
         run: |
-          echo "=== Locating .app inside xcarchive ==="
-          APP_PATH=$(find ios/build/SubTrack.xcarchive -name "*.app" | head -n 1)
-
-          if [ -z "$APP_PATH" ]; then
-            echo "❌ ERROR: No .app found in xcarchive!"
-            find ios/build/SubTrack.xcarchive -type d | head -30
-            exit 1
-          fi
-
-          APP_NAME=$(basename "$APP_PATH")
-          echo "✅ Found: $APP_NAME at $APP_PATH"
-          echo "=== App bundle contents ==="
-          ls -lh "$APP_PATH"
-
+          cd ios/build/Build/Products/Release-iphoneos
           mkdir -p Payload
-          cp -r "$APP_PATH" "Payload/$APP_NAME"
-
-          # Convert Info.plist to XML for cross-platform compatibility (Sideloadly/AltStore)
-          plutil -convert xml1 "Payload/$APP_NAME/Info.plist"
-
-          echo "=== Info.plist preview ==="
-          plutil -p "Payload/$APP_NAME/Info.plist" | head -n 15
-
-          zip -r -9 SubTrack.ipa Payload
-          echo "=== IPA size ==="
-          du -sh SubTrack.ipa
+          cp -r SubTrack.app Payload/
+          zip -qq -r -9 SubTrack.ipa Payload
+          cp SubTrack.ipa ${{ github.workspace }}/
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
