@@ -79,11 +79,29 @@ jobs:
         run: |
           cd ios/build/Build/Products/Release-iphoneos
           rm -rf Payload SubTrack.ipa
-          mkdir -p Payload
-          cp -RL SubTrack.app Payload/
-          echo "=== Verifying Payload contents ==="
-          ls -la Payload/SubTrack.app/Info.plist
+          mkdir -p Payload/SubTrack.app
+          
+          # Dereference ALL internal symlinks completely so Windows extractors (isideload/Sideloadly) get real files
+          rsync -avL SubTrack.app/ Payload/SubTrack.app/
+          
+          # Ensure Info.plist exists and is non-empty
+          if [ ! -s Payload/SubTrack.app/Info.plist ]; then
+            echo "❌ ERROR: Info.plist is missing or empty in Payload/SubTrack.app!"
+            exit 1
+          fi
+          
+          # Convert Info.plist to XML format for 100% cross-platform parser compatibility (Rust isideload / Windows)
+          plutil -convert xml1 Payload/SubTrack.app/Info.plist
+          
+          echo "=== Verifying Info.plist contents ==="
+          plutil -p Payload/SubTrack.app/Info.plist | head -n 20
+          
+          # Zip Payload into SubTrack.ipa
           zip -r -9 SubTrack.ipa Payload
+          
+          echo "=== Verifying Zip Archive structure ==="
+          unzip -l SubTrack.ipa | grep "Payload/SubTrack.app/Info.plist"
+          
           mv SubTrack.ipa ${{ github.workspace }}/
 
       - name: Upload IPA artifact
