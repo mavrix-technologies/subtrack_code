@@ -78,6 +78,7 @@ jobs:
             CLANG_ENABLE_MODULE_DEBUGGING=NO \
             SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
             2>&1 | tee xcode_build.log || { echo "=================== XCODE BUILD FAILURE LOG ==================="; tail -n 150 xcode_build.log; exit 1; }
 
       - name: Create IPA
