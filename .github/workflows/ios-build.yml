@@ -77,23 +77,25 @@ jobs:
 
       - name: Create IPA
         run: |
-          echo "=== Searching for built .app package ==="
-          cd ios/build/Build/Products/Release-iphoneos || cd ios/build/Build/Products/*-iphoneos
-          ls -la
+          echo "=== Locating compiled .app bundle containing Info.plist ==="
           
-          APP_PATH=$(find . -maxdepth 1 -name "*.app" | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "Searching parent directories for .app package..."
-            APP_PATH=$(find ../.. -name "*.app" | head -n 1)
-          fi
-
-          if [ -z "$APP_PATH" ]; then
-            echo "❌ ERROR: No .app package found in build directory!"
+          # Find any .app directory under ios/build that contains an Info.plist file
+          INFO_PLIST_FILE=$(find ios/build -name "Info.plist" -path "*.app/Info.plist" | head -n 1)
+          
+          if [ -z "$INFO_PLIST_FILE" ]; then
+            echo "⚠️ No Info.plist found inside *.app folders in ios/build. Searching all Info.plist files:"
+            find ios/build -name "Info.plist"
+            echo "Searching all .app folders:"
+            find ios/build -name "*.app"
             exit 1
           fi
 
+          APP_PATH=$(dirname "$INFO_PLIST_FILE")
           APP_NAME=$(basename "$APP_PATH")
-          echo "✅ Found iOS App: $APP_NAME at $APP_PATH"
+          echo "✅ Found valid iOS App bundle: $APP_NAME at $APP_PATH"
+          
+          echo "=== Contents of $APP_PATH ==="
+          ls -la "$APP_PATH"
 
           rm -rf Payload SubTrack.ipa
           mkdir -p "Payload/$APP_NAME"
@@ -104,7 +106,6 @@ jobs:
           # Ensure Info.plist exists and is non-empty
           if [ ! -s "Payload/$APP_NAME/Info.plist" ]; then
             echo "❌ ERROR: Info.plist is missing or empty in Payload/$APP_NAME/Info.plist!"
-            ls -la "Payload/$APP_NAME"
             exit 1
           fi
           
