@@ -67,30 +67,27 @@ jobs:
             -sdk iphoneos \
             -derivedDataPath build \
             -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="-" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            CODE_SIGNING_INJECT_BASE_ENTITLEMENTS=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
             build 2>&1 | tee xcode_build.log || { echo "=================== XCODE BUILD FAILURE LOG ==================="; tail -n 150 xcode_build.log; exit 1; }
 
       - name: Create IPA
         run: |
-          echo "=== Locating compiled .app bundle containing Info.plist ==="
+          echo "=== Locating compiled .app bundle ==="
           
-          # Find any .app directory under ios/build that contains an Info.plist file
-          INFO_PLIST_FILE=$(find ios/build -name "Info.plist" -path "*.app/Info.plist" | head -n 1)
+          # Locate SubTrack.app or main .app bundle, excluding .framework and .bundle directories
+          APP_PATH=$(find ios/build/Build/Products -name "SubTrack.app" -o -name "*.app" | grep -v "\.framework" | grep -v "\.bundle" | head -n 1)
           
-          if [ -z "$INFO_PLIST_FILE" ]; then
-            echo "⚠️ No Info.plist found inside *.app folders in ios/build. Searching all Info.plist files:"
-            find ios/build -name "Info.plist"
-            echo "Searching all .app folders:"
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ ERROR: No .app package found in build directory!"
             find ios/build -name "*.app"
             exit 1
           fi
 
-          APP_PATH=$(dirname "$INFO_PLIST_FILE")
           APP_NAME=$(basename "$APP_PATH")
           echo "✅ Found valid iOS App bundle: $APP_NAME at $APP_PATH"
           
@@ -103,10 +100,17 @@ jobs:
           # Dereference ALL internal symlinks completely so extractors (isideload/Sideloadly) get real files
           rsync -avL "$APP_PATH/" "Payload/$APP_NAME/"
           
-          # Ensure Info.plist exists and is non-empty
+          # Ensure Info.plist exists in Payload; if missing, copy from prebuilt Expo ios project
           if [ ! -s "Payload/$APP_NAME/Info.plist" ]; then
-            echo "❌ ERROR: Info.plist is missing or empty in Payload/$APP_NAME/Info.plist!"
-            exit 1
+            echo "⚠️ Info.plist missing in app bundle. Copying from generated Expo iOS project..."
+            PLIST_SRC=$(find ios -name "Info.plist" -not -path "*/Pods/*" -not -path "*/build/*" | head -n 1)
+            if [ -n "$PLIST_SRC" ]; then
+              cp "$PLIST_SRC" "Payload/$APP_NAME/Info.plist"
+              echo "✅ Copied Info.plist from $PLIST_SRC"
+            else
+              echo "❌ ERROR: Could not find template Info.plist in ios directory!"
+              exit 1
+            fi
           fi
           
           # Convert Info.plist to XML format for 100% cross-platform parser compatibility (Rust isideload / Windows)
