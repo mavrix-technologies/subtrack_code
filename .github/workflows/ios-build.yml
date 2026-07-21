@@ -124,8 +124,6 @@ jobs:
           
           echo "=== Verifying Zip Archive structure ==="
           unzip -l SubTrack.ipa | grep "Payload/.*Info.plist"
-          
-          mv SubTrack.ipa ${{ github.workspace }}/
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
