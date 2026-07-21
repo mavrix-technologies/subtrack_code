@@ -29,6 +29,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: ios
+
       - name: Prebuild iOS
         run: npx expo prebuild --platform ios --clean
 
@@ -60,22 +67,10 @@ jobs:
             echo "Podfile already patched, skipping"
           fi
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.2"
-          bundler-cache: true
-          working-directory: ios
-
-      - name: Install CocoaPods dependencies
+      - name: Re-run pod install after Podfile patches
         run: |
           cd ios
-          if [ -f Gemfile ]; then
-            bundle exec pod install
-          else
-            gem install cocoapods --no-document
-            pod install
-          fi
+          pod install
 
       - name: Build iOS app (no codesign)
         run: |
