@@ -53,13 +53,17 @@ jobs:
           cd ios
           if grep -q "ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES" Podfile; then
             echo "Podfile already patched, skipping"
-          elif grep -q "target.build_configurations.each do |config|" Podfile; then
+          elif grep -q "post_install do |installer|" Podfile; then
             echo "Injecting build settings into existing post_install block..."
             awk '
-              /target\.build_configurations\.each do \|config\|/ && !done {
+              /^post_install do \|installer\|/ && !done {
                 print
-                print "      config.build_settings[\x27ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES\x27] = \x27YES\x27"
-                print "      config.build_settings[\x27CLANG_ENABLE_MODULE_DEBUGGING\x27] = \x27NO\x27"
+                print "  installer.pods_project.targets.each do |target|"
+                print "    target.build_configurations.each do |config|"
+                print "      config.build_settings['"'"'ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'"'"'] = '"'"'YES'"'"'"
+                print "      config.build_settings['"'"'CLANG_ENABLE_MODULE_DEBUGGING'"'"'] = '"'"'NO'"'"'"
+                print "    end"
+                print "  end"
                 done=1
                 next
               }
@@ -67,7 +71,7 @@ jobs:
             ' Podfile > Podfile.tmp && mv Podfile.tmp Podfile
             echo "Podfile patched successfully"
           else
-            echo "No existing post_install target loop found, appending new post_install block..."
+            echo "No post_install block found, appending one..."
             echo "" >> Podfile
             echo "post_install do |installer|" >> Podfile
             echo "  installer.pods_project.targets.each do |target|" >> Podfile
