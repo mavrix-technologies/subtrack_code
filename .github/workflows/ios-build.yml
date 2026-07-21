@@ -60,19 +60,21 @@ jobs:
 
       - name: Build iOS app (archive)
         run: |
+          set -o pipefail
           cd ios
           xcodebuild archive \
             -workspace SubTrack.xcworkspace \
             -scheme SubTrack \
             -configuration Release \
             -sdk iphoneos \
-            -archivePath build/SubTrack.xcarchive \
-            CODE_SIGNING_ALLOWED=NO \
+            -archivePath "$PWD/build/SubTrack.xcarchive" \
+            SKIP_INSTALL=NO \
+            CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGN_ENTITLEMENTS="" \
-            CODE_SIGNING_INJECT_BASE_ENTITLEMENTS=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO \
+            CODE_SIGN_IDENTITY="-" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             2>&1 | tee xcode_build.log || { echo "=================== XCODE BUILD FAILURE LOG ==================="; tail -n 150 xcode_build.log; exit 1; }
 
       - name: Create IPA
