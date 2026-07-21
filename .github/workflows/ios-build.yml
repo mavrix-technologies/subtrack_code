@@ -51,8 +51,23 @@ jobs:
       - name: Patch Podfile for RNFBApp Firebase error
         run: |
           cd ios
-          if ! grep -q "ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES" Podfile; then
-            echo "Patching Podfile for RNFBApp non-modular header fix..."
+          if grep -q "ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES" Podfile; then
+            echo "Podfile already patched, skipping"
+          elif grep -q "target.build_configurations.each do |config|" Podfile; then
+            echo "Injecting build settings into existing post_install block..."
+            awk '
+              /target\.build_configurations\.each do \|config\|/ && !done {
+                print
+                print "      config.build_settings[\x27ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES\x27] = \x27YES\x27"
+                print "      config.build_settings[\x27CLANG_ENABLE_MODULE_DEBUGGING\x27] = \x27NO\x27"
+                done=1
+                next
+              }
+              { print }
+            ' Podfile > Podfile.tmp && mv Podfile.tmp Podfile
+            echo "Podfile patched successfully"
+          else
+            echo "No existing post_install target loop found, appending new post_install block..."
             echo "" >> Podfile
             echo "post_install do |installer|" >> Podfile
             echo "  installer.pods_project.targets.each do |target|" >> Podfile
@@ -63,8 +78,6 @@ jobs:
             echo "  end" >> Podfile
             echo "end" >> Podfile
             echo "Podfile patched successfully"
-          else
-            echo "Podfile already patched, skipping"
           fi
 
       - name: Re-run pod install after Podfile patches
