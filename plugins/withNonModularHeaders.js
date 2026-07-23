@@ -3,9 +3,13 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Expo Config Plugin to allow non-modular header imports and disable modulemap definitions for Pod targets.
- * Fixes Clang errors (-Werror=non-modular-include-in-framework-module & RCTBridgeModule module import errors)
- * when using static frameworks with React Native Firebase (RNFBApp) on iOS.
+ * Expo Config Plugin to allow non-modular header imports and selectively disable modulemaps
+ * specifically for React Native Firebase (RNFB) pod targets.
+ *
+ * Fixes iOS build errors with static frameworks:
+ * - -Werror=non-modular-include-in-framework-module
+ * - declaration of 'RCTBridgeModule' must be imported from module 'RNFBApp.RNFBAppModule'
+ * while preserving module maps for Swift dependencies (e.g. FBLPromises).
  */
 module.exports = function withNonModularHeaders(config) {
   return withDangerousMod(config, [
@@ -21,7 +25,9 @@ module.exports = function withNonModularHeaders(config) {
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-        config.build_settings['DEFINES_MODULE'] = 'NO'
+        if target.name.start_with?('RNFB')
+          config.build_settings['DEFINES_MODULE'] = 'NO'
+        end
       end
     end
 `;
