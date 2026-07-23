@@ -146,7 +146,8 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "./plugins/withNonModularHeaders.js"
     ],
     "experiments": {
       "typedRoutes": false,
