@@ -48,11 +48,11 @@ jobs:
             sed -i.bak '/React Native requires XCode/,/raise.*XCode/d' Podfile
           fi
 
-      - name: Patch Podfile for RNFBApp Firebase error
+      - name: Patch Podfile for RNFBApp Firebase error (if needed)
         run: |
           cd ios
-          if grep -q "ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES" Podfile; then
-            echo "Podfile already patched, skipping"
+          if grep -q "CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES" Podfile; then
+            echo "Podfile already patched by Expo Config Plugin, skipping"
           elif grep -q "post_install do |installer|" Podfile; then
             echo "Injecting build settings into existing post_install block..."
             awk '
@@ -60,8 +60,10 @@ jobs:
                 print
                 print "  installer.pods_project.targets.each do |target|"
                 print "    target.build_configurations.each do |config|"
-                print "      config.build_settings['"'"'ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'"'"'] = '"'"'YES'"'"'"
-                print "      config.build_settings['"'"'CLANG_ENABLE_MODULE_DEBUGGING'"'"'] = '"'"'NO'"'"'"
+                print "      config.build_settings['"'"'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'"'"'] = '"'"'YES'"'"'"
+                print "      if target.name.start_with?('"'"'RNFB'"'"')"
+                print "        config.build_settings['"'"'DEFINES_MODULE'"'"'] = '"'"'NO'"'"'"
+                print "      end"
                 print "    end"
                 print "  end"
                 done=1
@@ -69,18 +71,6 @@ jobs:
               }
               { print }
             ' Podfile > Podfile.tmp && mv Podfile.tmp Podfile
-            echo "Podfile patched successfully"
-          else
-            echo "No post_install block found, appending one..."
-            echo "" >> Podfile
-            echo "post_install do |installer|" >> Podfile
-            echo "  installer.pods_project.targets.each do |target|" >> Podfile
-            echo "    target.build_configurations.each do |config|" >> Podfile
-            echo "      config.build_settings['ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'" >> Podfile
-            echo "      config.build_settings['CLANG_ENABLE_MODULE_DEBUGGING'] = 'NO'" >> Podfile
-            echo "    end" >> Podfile
-            echo "  end" >> Podfile
-            echo "end" >> Podfile
             echo "Podfile patched successfully"
           fi
 
